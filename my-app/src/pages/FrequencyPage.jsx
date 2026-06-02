@@ -1,8 +1,13 @@
-import { AlertTriangle, CalendarCheck, CheckCircle2, TrendingUp } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, CalendarCheck, CheckCircle2, Save, TrendingUp } from 'lucide-react'
 import AttendanceBarChart from '../components/charts/AttendanceBarChart'
 import Badge from '../components/ui/Badge'
+import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
-import { attendanceGrid, attendanceMonthly, studentProfile } from '../data/mockData'
+import { useSession } from '../hooks/useSession'
+import { useToast } from '../hooks/useToast'
+import { saveFrequency } from '../services/schoolService'
+import { attendanceGrid, attendanceMonthly, schoolClasses, studentProfile } from '../data/mockData'
 
 const statusColors = {
   Presenca: 'bg-success',
@@ -11,15 +16,49 @@ const statusColors = {
 }
 
 function FrequencyPage() {
+  const { addToast } = useToast()
+  const { isAdmin, isSupabaseConfigured, isTeacher, roleLabel } = useSession()
+  const canEditFrequency = isTeacher || isAdmin
+  const [monthlyRows, setMonthlyRows] = useState(attendanceMonthly)
+  const [isSaving, setIsSaving] = useState(false)
   const absences = attendanceGrid.filter((item) => item.status === 'Falta').length
   const delays = attendanceGrid.filter((item) => item.status === 'Atraso').length
+
+  const handleMonthChange = (month, value) => {
+    setMonthlyRows((current) =>
+      current.map((item) => (item.month === month ? { ...item, presenca: Number(value) } : item)),
+    )
+  }
+
+  const handleSaveFrequency = async () => {
+    setIsSaving(true)
+
+    try {
+      await saveFrequency(
+        monthlyRows.map((item) => ({
+          class_id: schoolClasses[0].id,
+          month_label: item.month,
+          presence_rate: item.presenca,
+          student_id: '11111111-1111-4111-8111-111111111111',
+        })),
+      )
+      addToast({
+        title: 'Frequencia salva',
+        message: isSupabaseConfigured ? 'Registros enviados ao Supabase.' : 'Frequencia atualizada no fallback local.',
+      })
+    } catch (error) {
+      addToast({ title: 'Erro ao salvar frequencia', message: error.message })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="grid gap-6">
       <div>
         <p className="text-sm font-black uppercase text-alert-coral">Assiduidade</p>
         <h1 className="mt-1 text-3xl font-black text-brand-ink">Frequencia do Aluno</h1>
-        <p className="mt-2 text-muted">Acompanhamento anual de presencas, atrasos e faltas.</p>
+        <p className="mt-2 text-muted">Acompanhamento anual de presencas, atrasos e faltas. Perfil ativo: {roleLabel}.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -51,7 +90,35 @@ function FrequencyPage() {
             Acima da meta
           </Badge>
         </div>
-        <AttendanceBarChart data={attendanceMonthly} />
+        <AttendanceBarChart data={monthlyRows} />
+        {canEditFrequency ? (
+          <div className="mt-6 rounded-xl border border-line bg-page p-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-black uppercase text-alert-coral">Professor</p>
+                <h3 className="font-black text-brand-ink">Editar presenca mensal</h3>
+              </div>
+              <Button disabled={isSaving} icon={Save} onClick={handleSaveFrequency} variant="royal">
+                {isSaving ? 'Salvando...' : 'Salvar frequencia'}
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {monthlyRows.map((item) => (
+                <label className="block text-sm font-bold text-brand-ink" key={item.month}>
+                  <span>{item.month}</span>
+                  <input
+                    className="mt-2 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-brand-royal focus:ring-2 focus:ring-brand-royal-soft"
+                    max="100"
+                    min="0"
+                    onChange={(event) => handleMonthChange(item.month, event.target.value)}
+                    type="number"
+                    value={item.presenca}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </Card>
 
       <Card>

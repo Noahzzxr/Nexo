@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Bell, X } from 'lucide-react'
-
-const ToastContext = createContext(null)
+import { useToast } from '../../hooks/useToast'
+import { ToastContext } from './toastContext'
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
@@ -31,10 +31,6 @@ export function ToastProvider({ children }) {
   }, [addToast])
 
   return <ToastContext.Provider value={{ addToast, dismissToast, toasts }}>{children}</ToastContext.Provider>
-}
-
-function useToast() {
-  return useContext(ToastContext)
 }
 
 export function ToastViewport() {

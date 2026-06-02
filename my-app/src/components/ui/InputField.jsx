@@ -19,11 +19,16 @@ function InputField({
         <textarea className={`${inputClass} min-h-28 resize-none`} name={name} placeholder={placeholder} value={value} {...props} />
       ) : as === 'select' ? (
         <select className={inputClass} name={name} value={value} {...props}>
-          {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
+          {options.map((option) => {
+            const optionValue = typeof option === 'string' ? option : option.value
+            const optionLabel = typeof option === 'string' ? option : option.label
+
+            return (
+              <option key={optionValue} value={optionValue}>
+                {optionLabel}
+              </option>
+            )
+          })}
         </select>
       ) : (
         <input className={inputClass} name={name} placeholder={placeholder} type={type} value={value} {...props} />

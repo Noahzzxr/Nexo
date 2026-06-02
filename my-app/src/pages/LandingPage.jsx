@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
   BookOpen,
@@ -15,6 +16,10 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import InputField from '../components/ui/InputField'
+import { mockCredentials, roles } from '../context/roles'
+import { useSession } from '../hooks/useSession'
+import { useToast } from '../hooks/useToast'
+import { createLead } from '../services/schoolService'
 import {
   courses,
   highlightPhotos,
@@ -27,6 +32,50 @@ import {
 const valueIcons = [ShieldCheck, Lightbulb, HeartHandshake]
 
 function LandingPage() {
+  const navigate = useNavigate()
+  const { isLoadingSession, loginWithCredentials, setRole } = useSession()
+  const { addToast } = useToast()
+  const [loginRole, setLoginRole] = useState(roles.student)
+  const [loginForm, setLoginForm] = useState({ email: mockCredentials.student.email, password: mockCredentials.student.password })
+  const [leadForm, setLeadForm] = useState({
+    cpf: '',
+    desiredCourse: 'Infantil',
+    email: '',
+    fullName: '',
+  })
+
+  const handleLogin = async (event) => {
+    event.preventDefault()
+
+    try {
+      const profile = await loginWithCredentials({
+        email: loginForm.email,
+        password: loginForm.password,
+        requestedRole: loginRole,
+      })
+      addToast({ title: 'Sessao iniciada', message: `Bem-vindo, ${profile.fullname}.` })
+      navigate('/dashboard')
+    } catch (error) {
+      addToast({ title: 'Falha no login', message: error.message })
+    }
+  }
+
+  const handleLeadSubmit = async (event) => {
+    event.preventDefault()
+
+    try {
+      await createLead(leadForm)
+      addToast({ title: 'Inscricao recebida', message: 'Seu cadastro foi enviado para analise da secretaria.' })
+      setLeadForm({ cpf: '', desiredCourse: 'Infantil', email: '', fullName: '' })
+    } catch (error) {
+      addToast({ title: 'Erro na inscricao', message: error.message })
+    }
+  }
+
+  const showFeedbacks = () => {
+    document.querySelector('#feedbacks')?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   return (
     <div className="bg-page text-copy">
       <section
@@ -78,6 +127,7 @@ function LandingPage() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-alert-coral px-5 py-3 text-sm font-black text-white transition hover:bg-red-700"
+                onClick={() => setRole(roles.student)}
                 to="/dashboard"
               >
                 <BookOpen aria-hidden="true" className="h-4 w-4" />
@@ -130,14 +180,14 @@ function LandingPage() {
           </Card>
         </section>
 
-        <section className="bg-white py-12">
+        <section className="bg-white py-12" id="feedbacks">
           <div className="mx-auto w-full max-w-7xl px-4 sm:px-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-black uppercase text-alert-coral">Nossos feedbacks</p>
                 <h2 className="mt-2 text-3xl font-black text-brand-ink">Familias acompanhando cada etapa</h2>
               </div>
-              <Button icon={Sparkles} variant="soft">
+              <Button icon={Sparkles} onClick={showFeedbacks} variant="soft">
                 Ver feedbacks
               </Button>
             </div>
@@ -186,7 +236,11 @@ function LandingPage() {
                 <p className="text-sm font-black uppercase text-alert-coral">Nossos projetos</p>
                 <h2 className="mt-2 text-3xl font-black text-brand-ink">Aprender fazendo</h2>
               </div>
-              <Button icon={Bot} variant="primary">
+              <Button
+                icon={Bot}
+                onClick={() => addToast({ title: 'Projetos', message: 'A coordenacao entrara em contato com detalhes dos projetos ativos.' })}
+                variant="primary"
+              >
                 Saiba mais
               </Button>
             </div>
@@ -215,7 +269,17 @@ function LandingPage() {
                   <Badge tone="dark">{course.title}</Badge>
                   <h3 className="mt-4 text-xl font-black text-brand-ink">{course.label}</h3>
                   <p className="mt-2 text-sm leading-6 text-muted">Turmas com acompanhamento digital, projetos aplicados e rotina de aprendizagem visivel.</p>
-                  <Button className="mt-4 w-full" icon={ArrowRight} variant="royal">
+                  <Button
+                    className="mt-4 w-full"
+                    icon={ArrowRight}
+                    onClick={() =>
+                      addToast({
+                        title: course.label,
+                        message: 'Interesse registrado. Complete a inscricao para receber contato.',
+                      })
+                    }
+                    variant="royal"
+                  >
                     Saber Mais
                   </Button>
                 </div>
@@ -232,6 +296,7 @@ function LandingPage() {
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <Link
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-royal px-4 py-3 text-sm font-black text-white transition hover:bg-blue-800"
+                  onClick={() => setRole(roles.teacher)}
                   to="/dashboard"
                 >
                   <LockKeyhole aria-hidden="true" className="h-4 w-4" />
@@ -239,17 +304,48 @@ function LandingPage() {
                 </Link>
                 <Link
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-alert-coral px-4 py-3 text-sm font-black text-white transition hover:bg-red-700"
+                  onClick={() => setRole(roles.student)}
                   to="/dashboard"
                 >
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
                   Login Aluno
                 </Link>
               </div>
-              <form className="mt-6 grid gap-4" onSubmit={(event) => event.preventDefault()}>
-                <InputField label="Matricula/CPF" name="login" placeholder="Digite sua matricula" />
-                <InputField label="Senha" name="password" placeholder="Digite sua senha" type="password" />
-                <Button icon={LockKeyhole} type="submit" variant="primary">
-                  Entrar
+              <form className="mt-6 grid gap-4" onSubmit={handleLogin}>
+                <InputField
+                  as="select"
+                  label="Tipo de acesso"
+                  name="profile"
+                  onChange={(event) => {
+                    const nextRole = event.target.value
+                    setLoginRole(nextRole)
+                    setLoginForm(mockCredentials[nextRole])
+                  }}
+                  options={[
+                    { label: 'Aluno', value: roles.student },
+                    { label: 'Professor', value: roles.teacher },
+                    { label: 'Administrador', value: roles.admin },
+                  ]}
+                  value={loginRole}
+                />
+                <InputField
+                  label="E-mail"
+                  name="email"
+                  onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="usuario@progresso.edu"
+                  type="email"
+                  value={loginForm.email}
+                />
+                <InputField
+                  label="Senha"
+                  name="password"
+                  onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))}
+                  placeholder="Digite sua senha"
+                  type="password"
+                  value={loginForm.password}
+                />
+                <Button disabled={isLoadingSession} icon={LockKeyhole} type="submit" variant="primary">
+                  {isLoadingSession ? 'Entrando...' : 'Entrar'}
                 </Button>
               </form>
             </Card>
@@ -257,11 +353,40 @@ function LandingPage() {
             <Card id="inscricao">
               <p className="text-sm font-black uppercase text-alert-coral">Faca sua inscricao</p>
               <h2 className="mt-2 text-3xl font-black text-brand-ink">Comece uma nova etapa</h2>
-              <form className="mt-6 grid gap-4" onSubmit={(event) => event.preventDefault()}>
-                <InputField label="Nome do aluno" name="student" placeholder="Nome completo" />
-                <InputField label="Responsavel" name="guardian" placeholder="Nome do responsavel" />
-                <InputField label="Telefone" name="phone" placeholder="(00) 00000-0000" />
-                <InputField as="select" label="Curso de interesse" name="course" options={['Infantil', 'Fundamental', 'Medio', 'Robotica']} />
+              <form className="mt-6 grid gap-4" onSubmit={handleLeadSubmit}>
+                <InputField
+                  label="Nome do aluno"
+                  name="fullName"
+                  onChange={(event) => setLeadForm((current) => ({ ...current, fullName: event.target.value }))}
+                  placeholder="Nome completo"
+                  required
+                  value={leadForm.fullName}
+                />
+                <InputField
+                  label="Email"
+                  name="email"
+                  onChange={(event) => setLeadForm((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="familia@email.com"
+                  required
+                  type="email"
+                  value={leadForm.email}
+                />
+                <InputField
+                  label="CPF"
+                  name="cpf"
+                  onChange={(event) => setLeadForm((current) => ({ ...current, cpf: event.target.value }))}
+                  placeholder="000.000.000-00"
+                  required
+                  value={leadForm.cpf}
+                />
+                <InputField
+                  as="select"
+                  label="Curso de interesse"
+                  name="course"
+                  onChange={(event) => setLeadForm((current) => ({ ...current, desiredCourse: event.target.value }))}
+                  options={['Infantil', 'Fundamental', 'Medio', 'Robotica']}
+                  value={leadForm.desiredCourse}
+                />
                 <Button icon={Medal} type="submit" variant="coral">
                   Enviar inscricao
                 </Button>

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Gamepad2, Play, Trophy } from 'lucide-react'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -37,7 +38,7 @@ function GamesPage() {
                   <p className="mt-1 text-sm text-muted">{game.subject}</p>
                 </div>
               </div>
-              <Button className="mt-5 w-full" icon={Play} variant="royal">
+              <Button as={Link} className="mt-5 w-full" icon={Play} to={`/quiz/${game.id}`} variant="royal">
                 Jogar agora
               </Button>
             </div>

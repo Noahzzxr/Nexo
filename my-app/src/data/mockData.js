@@ -207,12 +207,60 @@ export const gradeHistory = [
 ]
 
 export const activities = [
-  { course: 'Matematica do Brasil', name: 'Equacoes do segundo grau', due: '06/06/2026', status: 'Pendente' },
-  { course: 'Ingles', name: 'Listening checkpoint', due: '07/06/2026', status: 'Concluido' },
-  { course: 'Historia', name: 'Linha do tempo republicana', due: '31/05/2026', status: 'Atrasado' },
-  { course: 'Quimica', name: 'Relatorio de solucoes', due: '10/06/2026', status: 'Pendente' },
-  { course: 'Redacao', name: 'Texto dissertativo', due: '11/06/2026', status: 'Concluido' },
-  { course: 'Fisica', name: 'Lista de cinematica', due: '12/06/2026', status: 'Pendente' },
+  {
+    id: 'aaaaaaaa-0001-4000-8000-000000000001',
+    classId: '99999999-0001-4000-8000-000000000001',
+    subjectId: '88888888-0001-4000-8000-000000000001',
+    course: 'Matematica do Brasil',
+    name: 'Equacoes do segundo grau',
+    due: '06/06/2026',
+    status: 'Pendente',
+  },
+  {
+    id: 'aaaaaaaa-0002-4000-8000-000000000002',
+    classId: '99999999-0001-4000-8000-000000000001',
+    subjectId: '88888888-0004-4000-8000-000000000004',
+    course: 'Ingles',
+    name: 'Listening checkpoint',
+    due: '07/06/2026',
+    status: 'Concluido',
+  },
+  {
+    id: 'aaaaaaaa-0003-4000-8000-000000000003',
+    classId: '99999999-0001-4000-8000-000000000001',
+    subjectId: '88888888-0003-4000-8000-000000000003',
+    course: 'Historia',
+    name: 'Linha do tempo republicana',
+    due: '31/05/2026',
+    status: 'Atrasado',
+  },
+  {
+    id: 'aaaaaaaa-0004-4000-8000-000000000004',
+    classId: '99999999-0001-4000-8000-000000000001',
+    subjectId: '88888888-0005-4000-8000-000000000005',
+    course: 'Quimica',
+    name: 'Relatorio de solucoes',
+    due: '10/06/2026',
+    status: 'Pendente',
+  },
+  {
+    id: 'aaaaaaaa-0005-4000-8000-000000000005',
+    classId: '99999999-0001-4000-8000-000000000001',
+    subjectId: '88888888-0002-4000-8000-000000000002',
+    course: 'Redacao',
+    name: 'Texto dissertativo',
+    due: '11/06/2026',
+    status: 'Concluido',
+  },
+  {
+    id: 'aaaaaaaa-0006-4000-8000-000000000006',
+    classId: '99999999-0001-4000-8000-000000000001',
+    subjectId: '88888888-0006-4000-8000-000000000006',
+    course: 'Fisica',
+    name: 'Lista de cinematica',
+    due: '12/06/2026',
+    status: 'Pendente',
+  },
 ]
 
 export const materials = [
@@ -222,6 +270,29 @@ export const materials = [
   { title: 'Listening Pack 03', subject: 'Ingles', type: 'Audio', size: '22 MB', updated: '31/05/2026' },
   { title: 'Resumo de Ligacoes Quimicas', subject: 'Quimica', type: 'PDF', size: '3.8 MB', updated: '01/06/2026' },
   { title: 'Simulado Comentado', subject: 'Fisica', type: 'PDF', size: '9.7 MB', updated: '02/06/2026' },
+]
+
+export const postedMaterials = [
+  {
+    id: 'bbbbbbbb-0001-4000-8000-000000000001',
+    class_id: '99999999-0001-4000-8000-000000000001',
+    created_at: '2026-06-02T12:00:00.000Z',
+    description: 'Lista comentada de funcoes quadraticas para revisar antes da avaliacao.',
+    file_attachment_url: null,
+    subject_id: '88888888-0001-4000-8000-000000000001',
+    teacher_id: '22222222-2222-4222-8222-222222222222',
+    title: 'Revisao de Matematica',
+  },
+  {
+    id: 'bbbbbbbb-0002-4000-8000-000000000002',
+    class_id: '99999999-0001-4000-8000-000000000001',
+    created_at: '2026-06-01T16:00:00.000Z',
+    description: 'Roteiro de leitura e perguntas orientadoras sobre Brasil Republicano.',
+    file_attachment_url: null,
+    subject_id: '88888888-0003-4000-8000-000000000003',
+    teacher_id: '22222222-2222-4222-8222-222222222222',
+    title: 'Roteiro de Historia',
+  },
 ]
 
 export const calendarEvents = [
@@ -289,12 +360,135 @@ export const ranking = [
 ]
 
 export const games = [
-  { title: 'Desafio de Logica', subject: 'Matematica', score: '920 pts', image: image('photo-1516321318423-f06f85e504b3', 500, 300) },
-  { title: 'Quiz de Ciencias', subject: 'Quimica', score: '840 pts', image: image('photo-1532094349884-543bc11b234d', 500, 300) },
-  { title: 'Aventura de Historia', subject: 'Historia', score: '760 pts', image: image('photo-1461360370896-922624d12aa1', 500, 300) },
-  { title: 'Trilha de Ingles', subject: 'Idiomas', score: '710 pts', image: image('photo-1503676260728-1c00da094a0b', 500, 300) },
-  { title: 'Fisica em Movimento', subject: 'Fisica', score: '680 pts', image: image('photo-1517976547714-720226b864c1', 500, 300) },
-  { title: 'Clube de Redacao', subject: 'Redacao', score: '640 pts', image: image('photo-1455390582262-044cdead277a', 500, 300) },
+  { id: 'quiz-matematica', title: 'Desafio de Logica', subject: 'Matematica', score: '920 pts', image: image('photo-1516321318423-f06f85e504b3', 500, 300) },
+  { id: 'quiz-quimica', title: 'Quiz de Ciencias', subject: 'Quimica', score: '840 pts', image: image('photo-1532094349884-543bc11b234d', 500, 300) },
+  { id: 'quiz-historia', title: 'Aventura de Historia', subject: 'Historia', score: '760 pts', image: image('photo-1461360370896-922624d12aa1', 500, 300) },
+  { id: 'quiz-ingles', title: 'Trilha de Ingles', subject: 'Idiomas', score: '710 pts', image: image('photo-1503676260728-1c00da094a0b', 500, 300) },
+  { id: 'quiz-fisica', title: 'Fisica em Movimento', subject: 'Fisica', score: '680 pts', image: image('photo-1517976547714-720226b864c1', 500, 300) },
+  { id: 'quiz-redacao', title: 'Clube de Redacao', subject: 'Redacao', score: '640 pts', image: image('photo-1455390582262-044cdead277a', 500, 300) },
+]
+
+export const quizzes = [
+  {
+    id: 'quiz-matematica',
+    subject_id: '88888888-0001-4000-8000-000000000001',
+    title: 'Quiz de Matematica',
+    questions: [
+      {
+        id: 'q-mat-1',
+        question_text: 'Qual e o resultado de 3x + 5 = 20?',
+        options: ['x = 3', 'x = 5', 'x = 7', 'x = 10'],
+        correct_option: 1,
+      },
+      {
+        id: 'q-mat-2',
+        question_text: 'Em uma funcao quadratica, o grafico recebe o nome de:',
+        options: ['Reta', 'Parabola', 'Circunferencia', 'Tangente'],
+        correct_option: 1,
+      },
+      {
+        id: 'q-mat-3',
+        question_text: 'Quanto e 12% de 200?',
+        options: ['12', '18', '24', '32'],
+        correct_option: 2,
+      },
+    ],
+  },
+  {
+    id: 'quiz-quimica',
+    subject_id: '88888888-0005-4000-8000-000000000005',
+    title: 'Quiz de Quimica',
+    questions: [
+      {
+        id: 'q-qui-1',
+        question_text: 'Qual particula possui carga negativa?',
+        options: ['Proton', 'Neutron', 'Eletron', 'Nucleo'],
+        correct_option: 2,
+      },
+      {
+        id: 'q-qui-2',
+        question_text: 'A agua e representada por:',
+        options: ['CO2', 'H2O', 'NaCl', 'O2'],
+        correct_option: 1,
+      },
+    ],
+  },
+  {
+    id: 'quiz-historia',
+    subject_id: '88888888-0003-4000-8000-000000000003',
+    title: 'Quiz de Historia',
+    questions: [
+      {
+        id: 'q-his-1',
+        question_text: 'A Proclamacao da Republica no Brasil aconteceu em:',
+        options: ['1822', '1888', '1889', '1930'],
+        correct_option: 2,
+      },
+      {
+        id: 'q-his-2',
+        question_text: 'Qual periodo veio logo apos o Imperio no Brasil?',
+        options: ['Republica Velha', 'Estado Novo', 'Regencia', 'Nova Republica'],
+        correct_option: 0,
+      },
+    ],
+  },
+  {
+    id: 'quiz-ingles',
+    subject_id: '88888888-0004-4000-8000-000000000004',
+    title: 'Quiz de Ingles',
+    questions: [
+      {
+        id: 'q-ing-1',
+        question_text: 'Qual alternativa traduz "school"?',
+        options: ['Livro', 'Escola', 'Casa', 'Janela'],
+        correct_option: 1,
+      },
+      {
+        id: 'q-ing-2',
+        question_text: 'Complete: I ___ studying now.',
+        options: ['am', 'is', 'are', 'be'],
+        correct_option: 0,
+      },
+    ],
+  },
+  {
+    id: 'quiz-fisica',
+    subject_id: '88888888-0006-4000-8000-000000000006',
+    title: 'Quiz de Fisica',
+    questions: [
+      {
+        id: 'q-fis-1',
+        question_text: 'A unidade de velocidade no SI e:',
+        options: ['m/s', 'kg', 'N', 'J'],
+        correct_option: 0,
+      },
+      {
+        id: 'q-fis-2',
+        question_text: 'Forca e massa vezes:',
+        options: ['Tempo', 'Aceleracao', 'Distancia', 'Volume'],
+        correct_option: 1,
+      },
+    ],
+  },
+  {
+    id: 'quiz-redacao',
+    subject_id: '88888888-0002-4000-8000-000000000002',
+    title: 'Quiz de Redacao',
+    questions: [
+      {
+        id: 'q-red-1',
+        question_text: 'A tese de um texto dissertativo apresenta:',
+        options: ['A conclusao final', 'O ponto de vista defendido', 'A bibliografia', 'A citacao direta'],
+        correct_option: 1,
+      },
+      {
+        id: 'q-red-2',
+        question_text: 'Conectivos ajudam principalmente na:',
+        options: ['Coesao', 'Pontuacao estetica', 'Contagem de linhas', 'Capa do texto'],
+        correct_option: 0,
+      },
+    ],
+  },
 ]
 
 export const attendanceMonthly = [
@@ -328,4 +522,59 @@ export const examHistory = [
   { subject: 'Matematica', date: '12/05/2026', result: '8.6' },
   { subject: 'Redacao', date: '15/05/2026', result: '8.2' },
   { subject: 'Historia', date: '20/05/2026', result: '8.8' },
+]
+
+export const schoolClasses = [
+  { id: '99999999-0001-4000-8000-000000000001', name: '9o ano B', school_year: '2026' },
+  { id: '99999999-0002-4000-8000-000000000002', name: '8o ano A', school_year: '2026' },
+  { id: '99999999-0003-4000-8000-000000000003', name: '2o Medio B', school_year: '2026' },
+]
+
+export const subjectsCatalog = [
+  { id: '88888888-0001-4000-8000-000000000001', name: 'Matematica' },
+  { id: '88888888-0002-4000-8000-000000000002', name: 'Redacao' },
+  { id: '88888888-0003-4000-8000-000000000003', name: 'Historia' },
+  { id: '88888888-0004-4000-8000-000000000004', name: 'Ingles' },
+  { id: '88888888-0005-4000-8000-000000000005', name: 'Quimica' },
+  { id: '88888888-0006-4000-8000-000000000006', name: 'Fisica' },
+]
+
+export const adminUsers = [
+  {
+    id: '11111111-1111-4111-8111-111111111111',
+    fullname: 'Anna Regina',
+    email: 'anna.regina@progresso.edu',
+    role: 'student',
+  },
+  {
+    id: '22222222-2222-4222-8222-222222222222',
+    fullname: 'Marco Nunes',
+    email: 'marco.nunes@progresso.edu',
+    role: 'teacher',
+  },
+  {
+    id: '44444444-4444-4444-8444-444444444444',
+    fullname: 'Elisa Duarte',
+    email: 'elisa.duarte@progresso.edu',
+    role: 'teacher',
+  },
+]
+
+export const inscriptionLeads = [
+  {
+    id: '77777777-0001-4000-8000-000000000001',
+    full_name: 'Livia Carvalho',
+    email: 'livia.carvalho@email.com',
+    cpf: '123.456.789-00',
+    desired_course: 'Fundamental',
+    status: 'pending',
+  },
+  {
+    id: '77777777-0002-4000-8000-000000000002',
+    full_name: 'Caio Fernandes',
+    email: 'caio.fernandes@email.com',
+    cpf: '987.654.321-00',
+    desired_course: 'Medio',
+    status: 'pending',
+  },
 ]
