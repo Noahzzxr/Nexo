@@ -278,6 +278,137 @@ $$;
 
 grant execute on function public.approve_lead(uuid, text, text, text) to authenticated;
 
+create or replace function public.create_school_account(
+  account_fullname text,
+  account_email text,
+  account_role text,
+  account_cpf text default null,
+  account_class_id uuid default null
+)
+returns table (
+  auth_user_id uuid,
+  fullname text,
+  email text,
+  role text,
+  registration_number text,
+  initial_password text
+)
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  new_user_id uuid := gen_random_uuid();
+  generated_registration text;
+  generated_password text;
+begin
+  if public.current_user_role() <> 'admin' then
+    raise exception 'only admins can create school accounts';
+  end if;
+
+  if account_role not in ('student', 'teacher') then
+    raise exception 'account_role must be student or teacher';
+  end if;
+
+  if account_role = 'student' then
+    loop
+      generated_registration := 'PG-' || extract(year from now())::int || '-' || upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 8));
+      exit when not exists (
+        select 1 from public.profiles p where p.registration_number = generated_registration
+      );
+    end loop;
+    generated_password := generated_registration;
+  else
+    generated_registration := null;
+    generated_password := 'TCH-' || upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 12));
+  end if;
+
+  insert into auth.users (
+    id,
+    instance_id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at
+  )
+  values (
+    new_user_id,
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    account_email,
+    crypt(generated_password, gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('fullname', account_fullname, 'role', account_role),
+    now(),
+    now()
+  )
+  returning auth.users.id into new_user_id;
+
+  insert into auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  )
+  values (
+    new_user_id::text,
+    new_user_id,
+    jsonb_build_object('sub', new_user_id::text, 'email', account_email),
+    'email',
+    account_email,
+    now(),
+    now(),
+    now()
+  )
+  on conflict (provider, provider_id) do nothing;
+
+  insert into public.profiles (
+    id,
+    fullname,
+    email,
+    cpf,
+    registration_number,
+    role
+  )
+  values (
+    new_user_id,
+    account_fullname,
+    account_email,
+    account_cpf,
+    generated_registration,
+    account_role
+  );
+
+  if account_role = 'student' and account_class_id is not null then
+    insert into public.enrollments (student_id, class_id)
+    values (new_user_id, account_class_id)
+    on conflict (student_id, class_id) do nothing;
+  end if;
+
+  return query
+    select
+      new_user_id,
+      account_fullname,
+      account_email,
+      account_role,
+      generated_registration,
+      generated_password;
+end;
+$$;
+
+grant execute on function public.create_school_account(text, text, text, text, uuid) to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.classes enable row level security;
 alter table public.subjects enable row level security;
@@ -301,7 +432,12 @@ create policy profiles_admin_all on public.profiles
 
 drop policy if exists profiles_self_read_update on public.profiles;
 create policy profiles_self_read_update on public.profiles
-  for select using (id = auth.uid() or public.current_user_role() in ('teacher', 'admin'));
+  for select using (auth.uid() is not null);
+
+drop policy if exists profiles_self_update_avatar on public.profiles;
+create policy profiles_self_update_avatar on public.profiles
+  for update using (id = auth.uid())
+  with check (id = auth.uid());
 
 drop policy if exists classes_admin_all on public.classes;
 create policy classes_admin_all on public.classes
@@ -442,8 +578,6 @@ create policy leads_admin_all on public.leads_inscription
   with check (public.current_user_role() = 'admin');
 
 drop policy if exists leads_public_insert on public.leads_inscription;
-create policy leads_public_insert on public.leads_inscription
-  for insert with check (true);
 
 drop policy if exists posted_materials_admin_all on public.posted_materials;
 create policy posted_materials_admin_all on public.posted_materials
@@ -533,6 +667,77 @@ create policy attachments_authenticated_read on storage.objects
   for select using (bucket_id = 'school-attachments' and auth.uid() is not null);
 
 grant usage on schema public to anon, authenticated;
-grant insert on public.leads_inscription to anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
+
+do $$
+declare
+  admin_user_id uuid;
+begin
+  if not exists (select 1 from public.profiles where role = 'admin') then
+    admin_user_id := gen_random_uuid();
+
+    insert into auth.users (
+      id,
+      instance_id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      created_at,
+      updated_at
+    )
+    values (
+      admin_user_id,
+      '00000000-0000-0000-0000-000000000000',
+      'authenticated',
+      'authenticated',
+      'admin@progresso.edu',
+      crypt('Admin@2026!', gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      jsonb_build_object('fullname', 'Admin Progresso', 'role', 'admin'),
+      now(),
+      now()
+    );
+
+    insert into auth.identities (
+      id,
+      user_id,
+      identity_data,
+      provider,
+      provider_id,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    )
+    values (
+      admin_user_id::text,
+      admin_user_id,
+      jsonb_build_object('sub', admin_user_id::text, 'email', 'admin@progresso.edu'),
+      'email',
+      'admin@progresso.edu',
+      now(),
+      now(),
+      now()
+    )
+    on conflict (provider, provider_id) do nothing;
+
+    insert into public.profiles (
+      id,
+      fullname,
+      email,
+      role
+    )
+    values (
+      admin_user_id,
+      'Admin Progresso',
+      'admin@progresso.edu',
+      'admin'
+    );
+  end if;
+end;
+$$;

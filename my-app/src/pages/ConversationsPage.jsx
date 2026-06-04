@@ -1,186 +1,82 @@
-import { useMemo, useRef, useState } from 'react'
-import { Paperclip, Search, Send } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Search, Send } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import { roles } from '../context/roles'
 import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
-import { studentProfile, adminUsers } from '../data/mockData'
+import { sendMessage } from '../services/schoolService'
 
 function ConversationsPage() {
   const { addToast } = useToast()
-  const { currentUser, isTeacher, isAdmin, globalMessages, sendGlobalMessage, studentsList, roleLabel } = useSession()
-  const fileInputRef = useRef(null)
-  const [activeIndex, setActiveIndex] = useState(0)
+  const { currentUser, isAdmin, isTeacher, refreshSchoolData, roleLabel, schoolData } = useSession()
+  const [activeId, setActiveId] = useState('')
   const [messageText, setMessageText] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Define contacts list based on role
   const contacts = useMemo(() => {
+    if (isAdmin) return schoolData.profiles.filter((profile) => profile.id !== currentUser.id)
     if (isTeacher) {
-      // Show students who have messaged this teacher
-      const studentIdsWithMessages = new Set()
-      globalMessages.forEach((msg) => {
-        if (msg.sender_id === currentUser.id) {
-          studentIdsWithMessages.add(msg.receiver_id)
-        } else if (msg.receiver_id === currentUser.id) {
-          studentIdsWithMessages.add(msg.sender_id)
-        }
-      })
-
-      return studentsList
-        .filter((s) => studentIdsWithMessages.has(s.id))
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          avatar: s.avatar || 'https://i.pravatar.cc/120?img=45',
-          subject: s.className || '9º ano B',
-          online: true,
-        }))
+      const classIds = schoolData.teacherSubjects.filter((item) => item.teacher_id === currentUser.id).map((item) => item.class_id)
+      const studentIds = schoolData.enrollments.filter((item) => classIds.includes(item.class_id)).map((item) => item.student_id)
+      return schoolData.students.filter((student) => studentIds.includes(student.id))
     }
+    return schoolData.teachers
+  }, [currentUser.id, isAdmin, isTeacher, schoolData])
 
-    if (isAdmin) {
-      // Show administrative users list
-      return adminUsers.map((user) => ({
-        avatar: user.role === 'aluno' ? studentProfile.avatar : 'https://i.pravatar.cc/120?img=3',
-        id: user.id,
-        name: user.fullname,
-        online: user.role !== 'aluno',
-        subject: user.role === 'aluno' ? 'Aluno' : 'Professor',
-      }))
-    }
-
-    // Default: Aluno (shows teachers)
-    return [
-      { id: '22222222-2222-4222-8222-222222222222', name: 'Marco Nunes', subject: 'Matemática', online: true, avatar: 'https://i.pravatar.cc/120?img=3' },
-      { id: '44444444-4444-4444-8444-444444444444', name: 'Elisa Duarte', subject: 'Redação', online: true, avatar: 'https://i.pravatar.cc/120?img=5' },
-      { id: '55555555-5555-4555-8555-555555555555', name: 'Rafael Brito', subject: 'História', online: false, avatar: 'https://i.pravatar.cc/120?img=11' },
-      { id: '66666666-6666-4666-8666-666666666666', name: 'Nina Salles', subject: 'Inglês', online: false, avatar: 'https://i.pravatar.cc/120?img=20' },
-    ]
-  }, [isTeacher, isAdmin, globalMessages, studentsList, currentUser.id])
-
-  const active = contacts[activeIndex] || contacts[0]
-
-  // Filter messages for current active chat
-  const activeMessages = active?.id
-    ? globalMessages
-        .filter(
-          (msg) =>
-            (msg.sender_id === currentUser.id && msg.receiver_id === active.id) ||
-            (msg.sender_id === active.id && msg.receiver_id === currentUser.id),
-        )
-        .map((msg) => ({
-          from: msg.sender_id === currentUser.id ? 'self' : 'contact',
-          text: msg.content,
-          time: new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        }))
+  const filteredContacts = contacts.filter((contact) => `${contact.fullname} ${contact.email}`.toLowerCase().includes(searchTerm.toLowerCase()))
+  const active = contacts.find((contact) => contact.id === activeId) || contacts[0]
+  const activeMessages = active
+    ? schoolData.messages.filter(
+        (message) =>
+          (message.sender_id === currentUser.id && message.receiver_id === active.id) ||
+          (message.sender_id === active.id && message.receiver_id === currentUser.id),
+      )
     : []
 
-  const filteredContacts = contacts.filter((contact) =>
-    `${contact.name} ${contact.subject}`.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  const handleSendMessage = (event) => {
+  const handleSendMessage = async (event) => {
     event.preventDefault()
     const content = messageText.trim()
+    if (!content || !active) return
 
-    if (!content || !active?.id) return
-
-    sendGlobalMessage(content, active.id, currentUser.id)
-    setMessageText('')
-  }
-
-  const handleAttachFile = (event) => {
-    const file = event.target.files?.[0]
-    if (!file || !active?.id) return
-
-    sendGlobalMessage(`[Anexo: ${file.name}]`, active.id, currentUser.id)
-    addToast({ title: 'Anexo enviado', message: file.name })
-    event.target.value = ''
+    try {
+      await sendMessage({ content, receiverId: active.id, senderId: currentUser.id })
+      setMessageText('')
+      await refreshSchoolData()
+    } catch (error) {
+      addToast({ title: 'Erro ao enviar mensagem', message: error.message })
+    }
   }
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-black uppercase text-alert-coral">Conversas</p>
-          <h1 className="mt-1 text-3xl font-black text-brand-ink">
-            {isTeacher ? 'Chat com Alunos' : 'Chat com Professor'}
-          </h1>
-          <p className="mt-2 text-muted">Mensagens acadêmicas privadas com envio rápido. Perfil ativo: {roleLabel}.</p>
-        </div>
+      <div>
+        <p className="text-sm font-black uppercase text-alert-coral">Conversas</p>
+        <h1 className="mt-1 text-3xl font-black text-brand-ink">{isTeacher ? 'Chat com alunos' : 'Chat escolar'}</h1>
+        <p className="mt-2 text-muted">Mensagens privadas salvas na tabela messages. Perfil ativo: {roleLabel}.</p>
       </div>
 
       <div className="grid min-h-[680px] gap-6 lg:grid-cols-[340px_1fr]">
         <Card className="p-0">
           <div className="border-b border-line p-4">
-            <label className="flex h-11 items-center gap-2 rounded-lg border border-line bg-page px-3 text-sm text-muted focus-within:border-brand-royal focus-within:ring-2 focus-within:ring-brand-royal-soft">
+            <label className="flex h-11 items-center gap-2 rounded-lg border border-line bg-page px-3 text-sm text-muted">
               <Search aria-hidden="true" className="h-4 w-4" />
-              <input
-                className="min-w-0 flex-1 bg-transparent text-slate-800 outline-none placeholder:text-slate-500"
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar contato"
-                type="search"
-                value={searchTerm}
-              />
+              <input className="min-w-0 flex-1 bg-transparent text-slate-800 outline-none" onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar contato" type="search" value={searchTerm} />
             </label>
           </div>
           <div className="grid gap-1 p-3">
-            {filteredContacts.length > 0 ? (
-              <>
-                <p className="px-2 py-2 text-xs font-black uppercase text-success">Online</p>
-                {filteredContacts
-                  .map((conversation) => ({ conversation, index: contacts.findIndex((contact) => contact.id === conversation.id) }))
-                  .filter(({ conversation }) => conversation.online)
-                  .map(({ conversation, index }) => (
-                    <button
-                      className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition ${
-                        index === activeIndex ? 'bg-brand-royal text-white' : 'hover:bg-brand-royal-soft'
-                      }`}
-                      key={conversation.name}
-                      onClick={() => setActiveIndex(index)}
-                      type="button"
-                    >
-                      <Avatar image={conversation.avatar} name={conversation.name} size="sm" status="online" />
-                      <span className="min-w-0 flex-1">
-                        <span className={`block truncate font-black ${index === activeIndex ? 'text-white' : 'text-brand-ink'}`}>
-                          {conversation.name}
-                        </span>
-                        <span className={`block truncate text-sm ${index === activeIndex ? 'text-white/75' : 'text-muted'}`}>
-                          {conversation.subject}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                <p className="mt-3 px-2 py-2 text-xs font-black uppercase text-muted">Offline</p>
-                {filteredContacts
-                  .map((conversation) => ({ conversation, index: contacts.findIndex((contact) => contact.id === conversation.id) }))
-                  .filter(({ conversation }) => !conversation.online)
-                  .map(({ conversation, index }) => (
-                    <button
-                      className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition ${
-                        index === activeIndex ? 'bg-brand-royal text-white' : 'hover:bg-brand-royal-soft'
-                      }`}
-                      key={conversation.name}
-                      onClick={() => setActiveIndex(index)}
-                      type="button"
-                    >
-                      <Avatar image={conversation.avatar} name={conversation.name} size="sm" status="offline" />
-                      <span className="min-w-0 flex-1">
-                        <span className={`block truncate font-black ${index === activeIndex ? 'text-white' : 'text-brand-ink'}`}>
-                          {conversation.name}
-                        </span>
-                        <span className={`block truncate text-sm ${index === activeIndex ? 'text-white/75' : 'text-muted'}`}>
-                          {conversation.subject}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-              </>
-            ) : (
-              <p className="px-2 py-4 text-sm text-center text-muted">Nenhum contato ativo encontrado.</p>
-            )}
+            {filteredContacts.map((contact) => (
+              <button className={`flex w-full items-center gap-3 rounded-lg p-3 text-left transition ${active?.id === contact.id ? 'bg-brand-royal text-white' : 'hover:bg-brand-royal-soft'}`} key={contact.id} onClick={() => setActiveId(contact.id)} type="button">
+                <Avatar image={contact.avatar_url} name={contact.fullname} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate font-black ${active?.id === contact.id ? 'text-white' : 'text-brand-ink'}`}>{contact.fullname}</span>
+                  <span className={`block truncate text-sm ${active?.id === contact.id ? 'text-white/75' : 'text-muted'}`}>{contact.role === roles.student ? 'Aluno' : contact.role === roles.teacher ? 'Professor' : 'Admin'}</span>
+                </span>
+              </button>
+            ))}
+            {!filteredContacts.length ? <p className="px-2 py-4 text-center text-sm text-muted">Nenhum contato disponivel.</p> : null}
           </div>
         </Card>
 
@@ -188,64 +84,38 @@ function ConversationsPage() {
           <Card className="flex min-h-0 flex-col p-0">
             <div className="flex items-center justify-between gap-4 border-b border-line p-4">
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar image={active.avatar} name={active.name} size="md" status={active.online ? 'online' : 'offline'} />
+                <Avatar image={active.avatar_url} name={active.fullname} size="md" />
                 <div className="min-w-0">
-                  <p className="truncate font-black text-brand-ink">{active.name}</p>
-                  <p className="truncate text-sm text-muted">{active.subject}</p>
+                  <p className="truncate font-black text-brand-ink">{active.fullname}</p>
+                  <p className="truncate text-sm text-muted">{active.email}</p>
                 </div>
               </div>
-              <Badge tone={active.online ? 'success' : 'neutral'}>{active.online ? 'Online' : 'Offline'}</Badge>
+              <Badge tone="royal">{active.role}</Badge>
             </div>
-
             <div className="scrollbar-thin flex-1 overflow-y-auto bg-page p-5">
               <div className="grid gap-4">
-                {activeMessages.map((message, index) => {
-                  const sentByCurrentUser = message.from === 'self'
-
+                {activeMessages.map((message) => {
+                  const sentByCurrentUser = message.sender_id === currentUser.id
                   return (
-                    <div className={`flex items-end gap-3 ${sentByCurrentUser ? 'justify-end' : 'justify-start'}`} key={`${message.time}-${index}`}>
-                      {!sentByCurrentUser ? <Avatar image={active.avatar} name={active.name} size="sm" /> : null}
-                      <div
-                        className={`max-w-[78%] rounded-xl px-4 py-3 text-sm leading-6 shadow-sm ${
-                          sentByCurrentUser ? 'bg-brand-royal text-white' : 'bg-white text-copy'
-                        }`}
-                      >
-                        <p>{message.text}</p>
-                        <p className={`mt-2 text-xs font-bold ${sentByCurrentUser ? 'text-white/80' : 'text-slate-600'}`}>{message.time}</p>
+                    <div className={`flex items-end gap-3 ${sentByCurrentUser ? 'justify-end' : 'justify-start'}`} key={message.id}>
+                      {!sentByCurrentUser ? <Avatar image={active.avatar_url} name={active.fullname} size="sm" /> : null}
+                      <div className={`max-w-[78%] rounded-xl px-4 py-3 text-sm leading-6 shadow-sm ${sentByCurrentUser ? 'bg-brand-royal text-white' : 'bg-white text-copy'}`}>
+                        <p>{message.content}</p>
+                        <p className={`mt-2 text-xs font-bold ${sentByCurrentUser ? 'text-white/80' : 'text-slate-600'}`}>{new Date(message.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
-                      {sentByCurrentUser ? <Avatar image={currentUser.avatar || studentProfile.avatar} name={currentUser.fullname} size="sm" /> : null}
+                      {sentByCurrentUser ? <Avatar image={currentUser.avatar_url} name={currentUser.fullname} size="sm" /> : null}
                     </div>
                   )
                 })}
               </div>
             </div>
-
             <form className="flex gap-3 border-t border-line p-4" onSubmit={handleSendMessage}>
-              <button
-                aria-label="Anexar arquivo"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-line text-muted transition hover:border-brand-royal hover:text-brand-royal"
-                onClick={() => fileInputRef.current?.click()}
-                type="button"
-              >
-                <Paperclip aria-hidden="true" className="h-5 w-5" />
-              </button>
-              <input className="hidden" onChange={handleAttachFile} ref={fileInputRef} type="file" />
-              <input
-                className="min-w-0 flex-1 rounded-lg border border-line px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-brand-royal focus:ring-2 focus:ring-brand-royal-soft"
-                onChange={(event) => setMessageText(event.target.value)}
-                placeholder="Mensagem..."
-                type="text"
-                value={messageText}
-              />
-              <Button icon={Send} type="submit" variant="primary">
-                Enviar
-              </Button>
+              <input className="min-w-0 flex-1 rounded-lg border border-line px-4 text-sm text-slate-900 outline-none" onChange={(event) => setMessageText(event.target.value)} placeholder="Mensagem..." type="text" value={messageText} />
+              <Button icon={Send} type="submit" variant="primary">Enviar</Button>
             </form>
           </Card>
         ) : (
-          <Card className="flex items-center justify-center p-8">
-            <p className="text-muted">Aguardando contatos iniciarem conversas.</p>
-          </Card>
+          <Card className="grid place-items-center text-muted">Nenhum contato disponivel.</Card>
         )}
       </div>
     </div>

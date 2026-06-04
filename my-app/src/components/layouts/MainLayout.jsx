@@ -78,7 +78,7 @@ function Footer() {
 }
 
 function MainLayout() {
-  const { isAuthenticated, isLoadingSession } = useSession()
+  const { dataError, isAuthenticated, isLoadingSession } = useSession()
 
   if (isLoadingSession) {
     return (
@@ -99,6 +99,7 @@ function MainLayout() {
     <div className="min-h-screen bg-page">
       <Navbar />
       <main className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-10 pt-24 sm:px-6">
+        {dataError ? <div className="mb-4 rounded-lg border border-alert-coral bg-alert-soft p-3 text-sm font-bold text-alert-coral">{dataError}</div> : null}
         <Outlet />
       </main>
       <Footer />
