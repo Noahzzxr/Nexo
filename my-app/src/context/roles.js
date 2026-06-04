@@ -1,27 +1,30 @@
 export const roles = {
-  student: 'student',
-  teacher: 'teacher',
+  student: 'aluno',
+  teacher: 'professor',
   admin: 'admin',
 }
 
 export const roleLabels = {
-  student: 'Aluno',
-  teacher: 'Professor',
+  aluno: 'Aluno',
+  professor: 'Professor',
   admin: 'Admin',
 }
 
 export const mockProfiles = {
-  student: {
+  aluno: {
     id: '11111111-1111-4111-8111-111111111111',
     fullname: 'Anna Regina',
     email: 'anna.regina@progresso.edu',
-    role: 'student',
+    role: 'aluno',
+    points: 370,
+    xp: 370,
+    level: 4,
   },
-  teacher: {
+  professor: {
     id: '22222222-2222-4222-8222-222222222222',
     fullname: 'Marco Nunes',
     email: 'marco.nunes@progresso.edu',
-    role: 'teacher',
+    role: 'professor',
   },
   admin: {
     id: '33333333-3333-4333-8333-333333333333',
@@ -32,11 +35,11 @@ export const mockProfiles = {
 }
 
 export const mockCredentials = {
-  student: {
+  aluno: {
     email: 'anna.regina@progresso.edu',
     password: 'aluno123',
   },
-  teacher: {
+  professor: {
     email: 'marco.nunes@progresso.edu',
     password: 'professor123',
   },

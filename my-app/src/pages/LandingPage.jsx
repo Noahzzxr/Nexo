@@ -35,7 +35,7 @@ function LandingPage() {
   const navigate = useNavigate()
   const { isLoadingSession, loginWithCredentials } = useSession()
   const { addToast } = useToast()
-  const [loginForm, setLoginForm] = useState({ email: mockCredentials.student.email, password: mockCredentials.student.password })
+  const [loginForm, setLoginForm] = useState({ email: mockCredentials.aluno.email, password: mockCredentials.aluno.password })
   const [leadForm, setLeadForm] = useState({
     cpf: '',
     desiredCourse: 'Infantil',
