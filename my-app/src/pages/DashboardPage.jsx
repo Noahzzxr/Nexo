@@ -8,8 +8,6 @@ import {
   FileText,
   MessageSquare,
   TrendingUp,
-  UserCheck,
-  BookOpen,
 } from 'lucide-react'
 import DoughnutStat from '../components/charts/DoughnutStat'
 import Avatar from '../components/ui/Avatar'
@@ -66,7 +64,6 @@ function DashboardPage() {
         if (!seen.has(contactId)) {
           seen.add(contactId)
           // Find contact name
-          const teacherObj = teachers.find((t) => t.name === 'Marco Nunes') // fallback
           let contactName = 'Professor'
           let contactAvatar = 'https://i.pravatar.cc/100?img=3'
           if (contactId === '22222222-2222-4222-8222-222222222222') {

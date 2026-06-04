@@ -13,6 +13,7 @@ import {
   Star,
 } from 'lucide-react'
 import Badge from '../components/ui/Badge'
+import LogoMark from '../components/brand/LogoMark'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import InputField from '../components/ui/InputField'
@@ -85,7 +86,7 @@ function LandingPage() {
         <header className="absolute inset-x-0 top-0 z-10 border-b border-white/15 bg-brand-ink/45 backdrop-blur">
           <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-4 sm:px-6">
             <Link className="flex items-center gap-3" to="/">
-              <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sm font-black text-brand-ink">PG</span>
+              <LogoMark light />
               <span>
                 <span className="block text-sm font-black">PROGRESSO</span>
                 <span className="block text-[10px] font-bold uppercase text-white/75">Colegio Inteligente</span>
@@ -361,7 +362,7 @@ function LandingPage() {
 
       <footer className="bg-brand-ink px-4 py-8 text-center text-sm text-slate-300">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-white text-sm font-black text-brand-ink">PG</span>
+          <LogoMark light />
           <p className="font-bold text-white">Colegio Progresso</p>
           <p>Copyright 2026. Ensino inteligente, humano e conectado.</p>
         </div>

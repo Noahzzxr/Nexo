@@ -63,20 +63,19 @@ function ConversationsPage() {
   const active = contacts[activeIndex] || contacts[0]
 
   // Filter messages for current active chat
-  const activeMessages = useMemo(() => {
-    if (!active?.id) return []
-    return globalMessages
-      .filter(
-        (msg) =>
-          (msg.sender_id === currentUser.id && msg.receiver_id === active.id) ||
-          (msg.sender_id === active.id && msg.receiver_id === currentUser.id),
-      )
-      .map((msg) => ({
-        from: msg.sender_id === currentUser.id ? 'self' : 'contact',
-        text: msg.content,
-        time: new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      }))
-  }, [globalMessages, currentUser.id, active?.id])
+  const activeMessages = active?.id
+    ? globalMessages
+        .filter(
+          (msg) =>
+            (msg.sender_id === currentUser.id && msg.receiver_id === active.id) ||
+            (msg.sender_id === active.id && msg.receiver_id === currentUser.id),
+        )
+        .map((msg) => ({
+          from: msg.sender_id === currentUser.id ? 'self' : 'contact',
+          text: msg.content,
+          time: new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        }))
+    : []
 
   const filteredContacts = contacts.filter((contact) =>
     `${contact.name} ${contact.subject}`.toLowerCase().includes(searchTerm.toLowerCase()),

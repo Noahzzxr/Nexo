@@ -53,7 +53,9 @@ function SessionProvider({ children }) {
         if (parsed && parsed.role === readInitialRole()) {
           return parsed
         }
-      } catch (e) {}
+      } catch {
+        return mockProfiles[readInitialRole()]
+      }
     }
     return mockProfiles[readInitialRole()]
   })

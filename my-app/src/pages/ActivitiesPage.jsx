@@ -147,6 +147,7 @@ function ActivitiesPage() {
         classId: assignmentForm.classId,
         subjectId: assignmentForm.subjectId,
         course: selectedSubjectName,
+        attachmentName: assignmentFile?.name || null,
         due: new Date(assignmentForm.dueDate).toLocaleDateString('pt-BR'),
         name: assignmentForm.title,
         description: assignmentForm.description,
