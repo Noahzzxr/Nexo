@@ -32,7 +32,7 @@ function AdminPage() {
   const [linkForm, setLinkForm] = useState({
     class_id: schoolClasses[0].id,
     subject_id: subjectsCatalog[0].id,
-    teacher_id: adminUsers.find((user) => user.role === roles.teacher)?.id,
+    teacher_id: adminUsers.find((user) => user.role === roles.teacher)?.id || adminUsers[1].id,
   })
 
   const teachers = users.filter((user) => user.role === roles.teacher)
@@ -42,7 +42,7 @@ function AdminPage() {
       <Card>
         <p className="text-sm font-black uppercase text-alert-coral">Acesso restrito</p>
         <h1 className="mt-1 text-3xl font-black text-brand-ink">Ferramentas administrativas</h1>
-        <p className="mt-3 text-slate-700">Entre com o e-mail e senha de administrador para liberar as ferramentas de gestao.</p>
+        <p className="mt-3 text-slate-700">Entre com o e-mail e senha de administrador para liberar as ferramentas de gestão.</p>
       </Card>
     )
   }
@@ -75,8 +75,8 @@ function AdminPage() {
         ...current,
       ])
       addToast({
-        title: 'Inscricao aprovada',
-        message: `${lead.full_name} recebeu matricula ${approved.registration_number}.`,
+        title: 'Inscrição aprovada',
+        message: `${lead.full_name} recebeu matrícula ${approved.registration_number}.`,
       })
     } catch (error) {
       addToast({ title: 'Erro ao aprovar lead', message: error.message })
@@ -90,9 +90,9 @@ function AdminPage() {
       const created = await createProfile(userForm)
       setUsers((current) => [created, ...current])
       setUserForm({ email: '', fullname: '', role: roles.student })
-      addToast({ title: 'Usuario criado', message: `${created.fullname} foi adicionado ao sistema.` })
+      addToast({ title: 'Usuário criado', message: `${created.fullname} foi adicionado ao sistema.` })
     } catch (error) {
-      addToast({ title: 'Erro ao criar usuario', message: error.message })
+      addToast({ title: 'Erro ao criar usuário', message: error.message })
     }
   }
 
@@ -100,9 +100,9 @@ function AdminPage() {
     try {
       await removeProfile(user.id)
       setUsers((current) => current.filter((item) => item.id !== user.id))
-      addToast({ title: 'Usuario removido', message: `${user.fullname} foi removido do cadastro.` })
+      addToast({ title: 'Usuário removido', message: `${user.fullname} foi removido do cadastro.` })
     } catch (error) {
-      addToast({ title: 'Erro ao remover usuario', message: error.message })
+      addToast({ title: 'Erro ao remover usuário', message: error.message })
     }
   }
 
@@ -138,9 +138,9 @@ function AdminPage() {
     try {
       const created = await assignTeacher(linkForm)
       setLinks((current) => [created, ...current])
-      addToast({ title: 'Vinculo criado', message: 'Professor, disciplina e turma foram vinculados.' })
+      addToast({ title: 'Vínculo criado', message: 'Professor, disciplina e turma foram vinculados com sucesso.' })
     } catch (error) {
-      addToast({ title: 'Erro ao criar vinculo', message: error.message })
+      addToast({ title: 'Erro ao criar vínculo', message: error.message })
     }
   }
 
@@ -148,16 +148,16 @@ function AdminPage() {
     <div className="grid gap-6">
       <div>
         <p className="text-sm font-black uppercase text-alert-coral">Administrador</p>
-        <h1 className="mt-1 text-3xl font-black text-brand-ink">Painel de Gestao</h1>
-        <p className="mt-2 text-muted">Inscricoes, usuarios e infraestrutura escolar com acoes administrativas.</p>
+        <h1 className="mt-1 text-3xl font-black text-brand-ink">Painel de Gestão</h1>
+        <p className="mt-2 text-muted">Inscrições, usuários e infraestrutura escolar com ações administrativas.</p>
       </div>
 
       <Card>
         <div className="mb-5">
-          <p className="text-sm font-black uppercase text-alert-coral">Leads</p>
-          <h2 className="mt-1 text-xl font-black text-brand-ink">Gerenciamento de Inscricoes</h2>
+          <p className="text-sm font-black uppercase text-alert-coral">Inscrições</p>
+          <h2 className="mt-1 text-xl font-black text-brand-ink">Gerenciamento de Inscrições</h2>
         </div>
-        <Table columns={['Nome', 'Curso', 'Status', 'Credenciais', 'Acao']}>
+        <Table columns={['Nome', 'Curso', 'Status', 'Credenciais', 'Ação']}>
           {leads.map((lead) => (
             <tr className="bg-white even:bg-slate-50" key={lead.id}>
               <td className="px-4 py-4">
@@ -176,7 +176,7 @@ function AdminPage() {
                     {lead.initial_password ? <p>Senha inicial: {lead.initial_password}</p> : null}
                   </>
                 ) : (
-                  'Aguardando aprovacao'
+                  'Aguardando aprovação'
                 )}
               </td>
               <td className="px-4 py-4">
@@ -186,7 +186,7 @@ function AdminPage() {
                   onClick={() => handleApproveLead(lead)}
                   variant="success"
                 >
-                  Aprovar Inscricao
+                  Aprovar Inscrição
                 </Button>
               </td>
             </tr>
@@ -196,7 +196,7 @@ function AdminPage() {
 
       <Card>
         <div className="mb-5">
-          <p className="text-sm font-black uppercase text-alert-coral">Usuarios</p>
+          <p className="text-sm font-black uppercase text-alert-coral">Usuários</p>
           <h2 className="mt-1 text-xl font-black text-brand-ink">Controle de Alunos e Professores</h2>
         </div>
         <form className="mb-5 grid gap-4 md:grid-cols-[1fr_1fr_180px_auto]" onSubmit={handleAddUser}>
@@ -229,7 +229,7 @@ function AdminPage() {
             Adicionar
           </Button>
         </form>
-        <Table columns={['Nome', 'Email', 'Perfil', 'Acao']}>
+        <Table columns={['Nome', 'Email', 'Perfil', 'Ação']}>
           {users.map((user) => (
             <tr className="bg-white even:bg-slate-50" key={user.id}>
               <td className="px-4 py-4 font-black text-brand-ink">{user.fullname}</td>
@@ -256,7 +256,7 @@ function AdminPage() {
               label="Nome da turma"
               name="className"
               onChange={(event) => setClassForm((current) => ({ ...current, name: event.target.value }))}
-              placeholder="Sala 2o B"
+              placeholder="Sala 2º B"
               required
               value={classForm.name}
             />
@@ -319,14 +319,14 @@ function AdminPage() {
               value={linkForm.subject_id}
             />
             <Button icon={Link2} type="submit" variant="royal">
-              Criar vinculo
+              Criar vínculo
             </Button>
           </form>
         </Card>
       </div>
 
       <Card>
-        <p className="text-sm font-black uppercase text-alert-coral">Vinculos ativos</p>
+        <p className="text-sm font-black uppercase text-alert-coral">Vínculos ativos</p>
         <h2 className="mt-1 text-xl font-black text-brand-ink">Professor por turma e disciplina</h2>
         <div className="mt-4 grid gap-3">
           {links.length ? (
@@ -338,7 +338,7 @@ function AdminPage() {
               </div>
             ))
           ) : (
-            <p className="rounded-lg bg-page p-4 text-sm text-slate-700">Nenhum vinculo criado nesta sessao.</p>
+            <p className="rounded-lg bg-page p-4 text-sm text-slate-700">Nenhum vínculo criado nesta sessão.</p>
           )}
         </div>
       </Card>

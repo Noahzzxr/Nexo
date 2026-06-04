@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
@@ -14,20 +15,35 @@ import Avatar from '../ui/Avatar'
 import { useSession } from '../../hooks/useSession'
 import { studentProfile } from '../../data/mockData'
 
-const links = [
-  { label: 'Dashboard', to: '/dashboard', icon: BarChart3 },
-  { label: 'Boletim', to: '/boletim', icon: BookOpen },
-  { label: 'Atividades', to: '/atividades', icon: ClipboardList },
-  { label: 'Jogos', to: '/jogos', icon: Gamepad2 },
-  { label: 'Chat', to: '/conversas', icon: MessageSquare },
-  { label: 'Calendario', to: '/calendario', icon: CalendarDays },
-  { label: 'Perfil', to: '/perfil', icon: UserCircle },
-]
-
 function Navbar() {
   const navigate = useNavigate()
-  const { currentUser, isAdmin, logout, roleLabel } = useSession()
-  const visibleLinks = isAdmin ? [...links, { label: 'Admin', to: '/admin', icon: ShieldCheck }] : links
+  const { currentUser, isAdmin, isTeacher, logout, roleLabel } = useSession()
+
+  const visibleLinks = useMemo(() => {
+    if (isAdmin) {
+      return [{ label: 'Administrador', to: '/admin', icon: ShieldCheck }]
+    }
+    if (isTeacher) {
+      return [
+        { label: 'Painel', to: '/dashboard', icon: BarChart3 },
+        { label: 'Boletim', to: '/boletim', icon: BookOpen },
+        { label: 'Atividades', to: '/atividades', icon: ClipboardList },
+        { label: 'Jogos', to: '/ranking', icon: Gamepad2 }, // Jogos (apenas o Ranking)
+        { label: 'Bater papo', to: '/conversas', icon: MessageSquare },
+        { label: 'Perfil', to: '/perfil', icon: UserCircle },
+      ]
+    }
+    // Aluno (Student)
+    return [
+      { label: 'Painel', to: '/dashboard', icon: BarChart3 },
+      { label: 'Boletim', to: '/boletim', icon: BookOpen },
+      { label: 'Atividades', to: '/atividades', icon: ClipboardList },
+      { label: 'Jogos', to: '/jogos', icon: Gamepad2 },
+      { label: 'Bater papo', to: '/conversas', icon: MessageSquare },
+      { label: 'Calendário', to: '/calendario', icon: CalendarDays },
+      { label: 'Perfil', to: '/perfil', icon: UserCircle },
+    ]
+  }, [isAdmin, isTeacher])
 
   const handleLogout = async () => {
     await logout()
@@ -68,13 +84,13 @@ function Navbar() {
 
         <details className="group relative shrink-0">
           <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-line bg-white px-2 py-1.5 transition hover:border-brand-royal">
-            <Avatar image={studentProfile.avatar} name={studentProfile.name} size="sm" />
+            <Avatar image={currentUser.avatar || studentProfile.avatar} name={currentUser.fullname} size="sm" />
             <span className="hidden max-w-32 truncate text-sm font-bold text-brand-ink md:block">{currentUser.fullname}</span>
             <span className="hidden rounded-md bg-brand-royal-soft px-2 py-1 text-xs font-black text-brand-royal lg:block">{roleLabel}</span>
           </summary>
           <div className="absolute right-0 top-12 w-72 rounded-xl border border-line bg-white p-4 text-slate-900 shadow-panel">
             <div className="flex items-center gap-3 border-b border-line pb-4">
-              <Avatar image={studentProfile.avatar} name={currentUser.fullname} size="md" />
+              <Avatar image={currentUser.avatar || studentProfile.avatar} name={currentUser.fullname} size="md" />
               <div className="min-w-0">
                 <p className="truncate font-black text-brand-ink">{currentUser.fullname}</p>
                 <p className="truncate text-sm text-slate-700">{currentUser.email}</p>

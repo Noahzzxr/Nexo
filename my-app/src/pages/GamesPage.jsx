@@ -4,6 +4,7 @@ import { Gamepad2, Play, Trophy } from 'lucide-react'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+<<<<<<< HEAD
 import Modal from '../components/ui/Modal'
 import { games, pendingTasks } from '../data/mockData'
 
@@ -22,6 +23,18 @@ function GamesPage() {
     setRedeemedRewards((current) =>
       current.includes(rewardTitle) ? current : [...current, rewardTitle]
     )
+=======
+import { games } from '../data/mockData'
+import { useSession } from '../hooks/useSession'
+import RankingPage from './RankingPage'
+
+function GamesPage() {
+  const { isTeacher } = useSession()
+
+  // Teachers do not play, they only view the student classification ranking
+  if (isTeacher) {
+    return <RankingPage />
+>>>>>>> def3735 (Ajuste no CSS, correção de erro, chat funcionando e painei do professor)
   }
 
   return (
@@ -32,8 +45,13 @@ function GamesPage() {
           <h1 className="mt-1 text-3xl font-black text-brand-ink">Aprender por desafios</h1>
           <p className="mt-2 text-muted">Trilhas interativas por disciplina com pontos para o ranking da turma.</p>
         </div>
+<<<<<<< HEAD
         <Button icon={Trophy} variant="warning" onClick={() => setIsRewardsOpen(true)}>
           Ver premios
+=======
+        <Button icon={Trophy} variant="warning">
+          Ver prêmios
+>>>>>>> def3735 (Ajuste no CSS, correção de erro, chat funcionando e painei do professor)
         </Button>
       </div>
 

@@ -5,9 +5,11 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import { quizzes } from '../data/mockData'
+import { useSession } from '../hooks/useSession'
 
 function QuizPage() {
   const { id } = useParams()
+  const { updateStudentPoints } = useSession()
   const quiz = useMemo(() => quizzes.find((item) => item.id === id) || quizzes[0], [id])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState([])
@@ -35,6 +37,16 @@ function QuizPage() {
 
     if (currentIndex + 1 >= quiz.questions.length) {
       setIsFinished(true)
+      const correctAnswers = nextAnswers.reduce((total, ans) => total + (ans.isCorrect ? 1 : 0), 0)
+      const pointsEarned = correctAnswers * 10 // Award 10 points per correct answer
+      
+      // Alert scoreboard
+      alert(`Quiz Concluído!\nPlacar: Você acertou ${correctAnswers} de ${quiz.questions.length} perguntas.\nVocê ganhou +${pointsEarned} pontos de XP!`)
+      
+      // Update student points in session
+      if (updateStudentPoints) {
+        updateStudentPoints(pointsEarned)
+      }
       return
     }
 
@@ -54,7 +66,7 @@ function QuizPage() {
         <div>
           <p className="text-sm font-black uppercase text-alert-coral">Jogos educativos</p>
           <h1 className="mt-1 text-3xl font-black text-brand-ink">{quiz.title}</h1>
-          <p className="mt-2 text-muted">Responda as perguntas, acompanhe o progresso e confira sua pontuacao final.</p>
+          <p className="mt-2 text-muted">Responda as perguntas, acompanhe o progresso e confira sua pontuação final.</p>
         </div>
         <Button as={Link} icon={ArrowLeft} to="/jogos" variant="ghost">
           Voltar
@@ -76,12 +88,12 @@ function QuizPage() {
       {isFinished ? (
         <Card className="text-center">
           <CheckCircle2 aria-hidden="true" className="mx-auto h-14 w-14 text-success" />
-          <h2 className="mt-4 text-3xl font-black text-brand-ink">Quiz concluido</h2>
+          <h2 className="mt-4 text-3xl font-black text-brand-ink">Quiz concluído</h2>
           <p className="mt-3 text-slate-700">
-            Voce acertou <strong>{score}</strong> de <strong>{quiz.questions.length}</strong> perguntas.
+            Você acertou <strong>{score}</strong> de <strong>{quiz.questions.length}</strong> perguntas.
           </p>
           <Badge className="mt-5" tone={score / quiz.questions.length >= 0.7 ? 'success' : 'warning'}>
-            Pontuacao: {Math.round((score / quiz.questions.length) * 100)}%
+            Pontuação: {Math.round((score / quiz.questions.length) * 100)}%
           </Badge>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Button icon={RotateCcw} onClick={resetQuiz} variant="royal">
@@ -113,7 +125,7 @@ function QuizPage() {
             ))}
           </div>
           <Button className="mt-6 w-full sm:w-auto" disabled={selectedOption === null} onClick={handleNext} variant="primary">
-            {currentIndex + 1 === quiz.questions.length ? 'Finalizar quiz' : 'Proxima pergunta'}
+            {currentIndex + 1 === quiz.questions.length ? 'Finalizar quiz' : 'Próxima pergunta'}
           </Button>
         </Card>
       )}
