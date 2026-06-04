@@ -8,7 +8,6 @@ import BoletimPage from './pages/BoletimPage'
 import CalendarPage from './pages/CalendarPage'
 import ConversationsPage from './pages/ConversationsPage'
 import DashboardPage from './pages/DashboardPage'
-import ExamsPage from './pages/ExamsPage'
 import FrequencyPage from './pages/FrequencyPage'
 import GamesPage from './pages/GamesPage'
 import LandingPage from './pages/LandingPage'
@@ -31,7 +30,7 @@ function App() {
             <Route path="/jogos" element={<GamesPage />} />
             <Route path="/quiz/:id" element={<QuizPage />} />
             <Route path="/conversas" element={<ConversationsPage />} />
-            <Route path="/provas" element={<ExamsPage />} />
+            <Route path="/provas" element={<Navigate to="/dashboard" replace />} />
             <Route path="/calendario" element={<CalendarPage />} />
             <Route path="/frequencia" element={<FrequencyPage />} />
             <Route path="/ranking" element={<RankingPage />} />

@@ -23,9 +23,21 @@ import {
 } from '../data/mockData'
 
 const statStyles = {
-  coral: 'bg-alert-coral text-white',
-  royal: 'bg-brand-royal text-white',
-  success: 'bg-success text-white',
+  coral: {
+    card: 'border-alert-coral/25 bg-alert-soft',
+    badge: 'bg-alert-coral text-white',
+    label: 'text-alert-coral',
+  },
+  royal: {
+    card: 'border-brand-royal/20 bg-brand-royal-soft',
+    badge: 'bg-brand-royal text-white',
+    label: 'text-brand-royal',
+  },
+  success: {
+    card: 'border-success/20 bg-success-soft',
+    badge: 'bg-success text-white',
+    label: 'text-success',
+  },
 }
 
 function DashboardPage() {
@@ -48,15 +60,19 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {dashboardStats.map((stat) => (
-          <Card className={`${statStyles[stat.tone]} overflow-hidden border-0`} key={stat.label}>
-            <p className="text-sm font-bold opacity-80">{stat.label}</p>
-            <div className="mt-4 flex items-end justify-between gap-4">
-              <span className="text-4xl font-black">{stat.value}</span>
-              <Badge tone="dark">{stat.detail}</Badge>
-            </div>
-          </Card>
-        ))}
+        {dashboardStats.map((stat) => {
+          const style = statStyles[stat.tone]
+
+          return (
+            <Card className={`${style.card} overflow-hidden`} key={stat.label}>
+              <p className={`text-sm font-black uppercase ${style.label}`}>{stat.label}</p>
+              <div className="mt-4 flex items-end justify-between gap-4">
+                <span className="text-4xl font-black text-brand-ink">{stat.value}</span>
+                <Badge className={style.badge}>{stat.detail}</Badge>
+              </div>
+            </Card>
+          )
+        })}
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_.85fr]">

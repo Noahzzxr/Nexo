@@ -16,7 +16,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import InputField from '../components/ui/InputField'
-import { mockCredentials, roles } from '../context/roles'
+import { mockCredentials } from '../context/roles'
 import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
 import { createLead } from '../services/schoolService'
@@ -33,9 +33,8 @@ const valueIcons = [ShieldCheck, Lightbulb, HeartHandshake]
 
 function LandingPage() {
   const navigate = useNavigate()
-  const { isLoadingSession, loginWithCredentials, setRole } = useSession()
+  const { isLoadingSession, loginWithCredentials } = useSession()
   const { addToast } = useToast()
-  const [loginRole, setLoginRole] = useState(roles.student)
   const [loginForm, setLoginForm] = useState({ email: mockCredentials.student.email, password: mockCredentials.student.password })
   const [leadForm, setLeadForm] = useState({
     cpf: '',
@@ -51,7 +50,6 @@ function LandingPage() {
       const profile = await loginWithCredentials({
         email: loginForm.email,
         password: loginForm.password,
-        requestedRole: loginRole,
       })
       addToast({ title: 'Sessao iniciada', message: `Bem-vindo, ${profile.fullname}.` })
       navigate('/dashboard')
@@ -107,13 +105,13 @@ function LandingPage() {
                 Login
               </a>
             </nav>
-            <Link
+            <a
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-4 text-sm font-black text-brand-ink transition hover:bg-brand-royal-soft"
-              to="/dashboard"
+              href="#login"
             >
               <LockKeyhole aria-hidden="true" className="h-4 w-4" />
               Portal
-            </Link>
+            </a>
           </div>
         </header>
 
@@ -125,14 +123,13 @@ function LandingPage() {
               Ensino conectado, acompanhamento claro e uma rotina escolar inteligente para alunos, familias e professores.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link
+              <a
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-alert-coral px-5 py-3 text-sm font-black text-white transition hover:bg-red-700"
-                onClick={() => setRole(roles.student)}
-                to="/dashboard"
+                href="#login"
               >
                 <BookOpen aria-hidden="true" className="h-4 w-4" />
-                Login Aluno
-              </Link>
+                Acessar portal
+              </a>
               <a
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-black text-brand-ink transition hover:bg-brand-royal-soft"
                 href="#inscricao"
@@ -293,41 +290,7 @@ function LandingPage() {
             <Card>
               <p className="text-sm font-black uppercase text-alert-coral">Area de login</p>
               <h2 className="mt-2 text-3xl font-black text-brand-ink">Acesse seu painel escolar</h2>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Link
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-royal px-4 py-3 text-sm font-black text-white transition hover:bg-blue-800"
-                  onClick={() => setRole(roles.teacher)}
-                  to="/dashboard"
-                >
-                  <LockKeyhole aria-hidden="true" className="h-4 w-4" />
-                  Login Professor
-                </Link>
-                <Link
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-alert-coral px-4 py-3 text-sm font-black text-white transition hover:bg-red-700"
-                  onClick={() => setRole(roles.student)}
-                  to="/dashboard"
-                >
-                  <BookOpen aria-hidden="true" className="h-4 w-4" />
-                  Login Aluno
-                </Link>
-              </div>
               <form className="mt-6 grid gap-4" onSubmit={handleLogin}>
-                <InputField
-                  as="select"
-                  label="Tipo de acesso"
-                  name="profile"
-                  onChange={(event) => {
-                    const nextRole = event.target.value
-                    setLoginRole(nextRole)
-                    setLoginForm(mockCredentials[nextRole])
-                  }}
-                  options={[
-                    { label: 'Aluno', value: roles.student },
-                    { label: 'Professor', value: roles.teacher },
-                    { label: 'Administrador', value: roles.admin },
-                  ]}
-                  value={loginRole}
-                />
                 <InputField
                   label="E-mail"
                   name="email"

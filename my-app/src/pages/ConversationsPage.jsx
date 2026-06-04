@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Paperclip, Search, Send } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
@@ -58,10 +58,12 @@ function ConversationsPage() {
   const { addToast } = useToast()
   const { currentUser, isAdmin, isSupabaseConfigured, isTeacher, roleLabel } = useSession()
   const contacts = useMemo(() => getContactList(isTeacher, isAdmin), [isAdmin, isTeacher])
+  const fileInputRef = useRef(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [messageText, setMessageText] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [messageMap, setMessageMap] = useState(() =>
+    JSON.parse(window.localStorage.getItem(`school-chat-${currentUser.id}`) || 'null') ||
     Object.fromEntries(contacts.map((contact) => [contact.id, contact.messages])),
   )
   const active = contacts[activeIndex] || contacts[0]
@@ -69,6 +71,10 @@ function ConversationsPage() {
   const filteredContacts = contacts.filter((contact) =>
     `${contact.name} ${contact.subject}`.toLowerCase().includes(searchTerm.toLowerCase()),
   )
+
+  useEffect(() => {
+    window.localStorage.setItem(`school-chat-${currentUser.id}`, JSON.stringify(messageMap))
+  }, [currentUser.id, messageMap])
 
   useEffect(() => {
     async function loadMessages() {
@@ -121,6 +127,35 @@ function ConversationsPage() {
       }))
     } catch (error) {
       addToast({ title: 'Erro ao enviar mensagem', message: error.message })
+    }
+  }
+
+  const handleAttachFile = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file || !active?.id) return
+
+    try {
+      const created = await sendMessage({
+        content: `[Anexo: ${file.name}]`,
+        receiverId: active.id,
+        senderId: currentUser.id,
+      })
+      setMessageMap((current) => ({
+        ...current,
+        [active.id]: [
+          ...(current[active.id] || []),
+          {
+            from: 'self',
+            text: created.content,
+            time: new Date(created.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          },
+        ],
+      }))
+      addToast({ title: 'Anexo enviado', message: file.name })
+    } catch (error) {
+      addToast({ title: 'Erro ao enviar anexo', message: error.message })
+    } finally {
+      event.target.value = ''
     }
   }
 
@@ -246,10 +281,12 @@ function ConversationsPage() {
             <button
               aria-label="Anexar arquivo"
               className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-line text-muted transition hover:border-brand-royal hover:text-brand-royal"
+              onClick={() => fileInputRef.current?.click()}
               type="button"
             >
               <Paperclip aria-hidden="true" className="h-5 w-5" />
             </button>
+            <input className="hidden" onChange={handleAttachFile} ref={fileInputRef} type="file" />
             <input
               className="min-w-0 flex-1 rounded-lg border border-line px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-brand-royal focus:ring-2 focus:ring-brand-royal-soft"
               onChange={(event) => setMessageText(event.target.value)}

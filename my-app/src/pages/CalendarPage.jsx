@@ -12,7 +12,7 @@ const eventStyles = {
 }
 
 const legend = [
-  { label: 'Provas', tone: 'bg-alert-coral' },
+  { label: 'Avaliacoes', tone: 'bg-alert-coral' },
   { label: 'Atividades', tone: 'bg-success' },
   { label: 'Eventos', tone: 'bg-brand-royal' },
 ]
@@ -27,7 +27,7 @@ function CalendarPage() {
         <div>
           <p className="text-sm font-black uppercase text-alert-coral">Calendario escolar</p>
           <h1 className="mt-1 text-3xl font-black text-brand-ink">Junho 2026</h1>
-          <p className="mt-2 text-muted">Provas, atividades e eventos organizados em tela cheia.</p>
+          <p className="mt-2 text-muted">Avaliacoes, atividades e eventos organizados em tela cheia.</p>
         </div>
         <Button icon={CalendarDays} variant="royal">
           Exportar agenda

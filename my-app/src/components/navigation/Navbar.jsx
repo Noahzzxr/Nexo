@@ -5,14 +5,12 @@ import {
   CalendarDays,
   ClipboardList,
   Gamepad2,
-  GraduationCap,
   LogOut,
   MessageSquare,
   ShieldCheck,
   UserCircle,
 } from 'lucide-react'
 import Avatar from '../ui/Avatar'
-import { roles, roleLabels } from '../../context/roles'
 import { useSession } from '../../hooks/useSession'
 import { studentProfile } from '../../data/mockData'
 
@@ -22,14 +20,13 @@ const links = [
   { label: 'Atividades', to: '/atividades', icon: ClipboardList },
   { label: 'Jogos', to: '/jogos', icon: Gamepad2 },
   { label: 'Chat', to: '/conversas', icon: MessageSquare },
-  { label: 'Provas', to: '/provas', icon: GraduationCap },
   { label: 'Calendario', to: '/calendario', icon: CalendarDays },
   { label: 'Perfil', to: '/perfil', icon: UserCircle },
 ]
 
 function Navbar() {
   const navigate = useNavigate()
-  const { currentUser, isAdmin, logout, role, roleLabel, setRole } = useSession()
+  const { currentUser, isAdmin, logout, roleLabel } = useSession()
   const visibleLinks = isAdmin ? [...links, { label: 'Admin', to: '/admin', icon: ShieldCheck }] : links
 
   const handleLogout = async () => {
@@ -83,21 +80,10 @@ function Navbar() {
                 <p className="truncate text-sm text-slate-700">{currentUser.email}</p>
               </div>
             </div>
-            <label className="mt-4 block text-sm font-bold text-brand-ink">
-              Perfil ativo
-              <select
-                aria-label="Alternar perfil"
-                className="mt-2 w-full rounded-lg border border-line bg-page px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-brand-royal focus:ring-2 focus:ring-brand-royal-soft"
-                onChange={(event) => setRole(event.target.value)}
-                value={role}
-              >
-                {Object.values(roles).map((item) => (
-                  <option key={item} value={item}>
-                    {roleLabels[item]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="mt-4 rounded-lg bg-page p-3">
+              <p className="text-xs font-black uppercase text-muted">Perfil ativo</p>
+              <p className="mt-1 font-black text-brand-ink">{roleLabel}</p>
+            </div>
             <button
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-alert-coral px-4 py-2.5 text-sm font-black text-white transition hover:bg-red-700"
               onClick={handleLogout}

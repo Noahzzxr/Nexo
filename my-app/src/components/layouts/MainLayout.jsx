@@ -1,5 +1,6 @@
-import { Outlet, Link } from 'react-router-dom'
+import { Navigate, Outlet, Link } from 'react-router-dom'
 import { Globe2, Mail, MapPin, MessagesSquare, Phone, Share2 } from 'lucide-react'
+import { useSession } from '../../hooks/useSession'
 import Navbar from '../navigation/Navbar'
 
 function Footer() {
@@ -76,6 +77,23 @@ function Footer() {
 }
 
 function MainLayout() {
+  const { isAuthenticated, isLoadingSession } = useSession()
+
+  if (isLoadingSession) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-page px-4 text-center">
+        <div>
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-brand-ink text-sm font-black text-white">PG</span>
+          <p className="mt-4 font-black text-brand-ink">Carregando sessao...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />
+  }
+
   return (
     <div className="min-h-screen bg-page">
       <Navbar />

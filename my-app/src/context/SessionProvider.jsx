@@ -8,6 +8,11 @@ function readInitialRole() {
   return Object.values(roles).includes(savedRole) ? savedRole : roles.student
 }
 
+function findMockRoleByEmail(email) {
+  const normalizedEmail = email.trim().toLowerCase()
+  return Object.entries(mockCredentials).find(([, credentials]) => credentials.email.toLowerCase() === normalizedEmail)?.[0]
+}
+
 function SessionProvider({ children }) {
   const [role, setRoleState] = useState(readInitialRole)
   const [currentUser, setCurrentUser] = useState(() => mockProfiles[readInitialRole()])
@@ -81,22 +86,23 @@ function SessionProvider({ children }) {
     }
   }, [hydrateProfile])
 
-  const loginWithCredentials = useCallback(async ({ email, password, requestedRole }) => {
+  const loginWithCredentials = useCallback(async ({ email, password }) => {
     setIsLoadingSession(true)
 
     try {
       if (!isSupabaseConfigured || !supabase) {
-        const demoProfile = mockProfiles[requestedRole]
-        const demoCredentials = mockCredentials[requestedRole]
+        const matchedRole = findMockRoleByEmail(email)
 
-        if (email && password && email !== demoCredentials.email) {
-          throw new Error(`Use ${demoCredentials.email} para entrar como ${roleLabels[requestedRole]} no modo demonstracao.`)
+        if (!matchedRole || mockCredentials[matchedRole].password !== password) {
+          throw new Error('E-mail ou senha invalidos. Use uma credencial cadastrada para entrar.')
         }
 
-        setRoleState(requestedRole)
+        const demoProfile = mockProfiles[matchedRole]
+
+        setRoleState(matchedRole)
         setCurrentUser(demoProfile)
         setIsAuthenticated(true)
-        window.localStorage.setItem('school-role', requestedRole)
+        window.localStorage.setItem('school-role', matchedRole)
         window.localStorage.setItem('school-authenticated', 'true')
         return demoProfile
       }
@@ -105,10 +111,6 @@ function SessionProvider({ children }) {
       if (error) throw error
 
       const profile = await hydrateProfile(data.user.id, data.user.email)
-
-      if (profile.role !== requestedRole) {
-        throw new Error(`Esta credencial pertence ao perfil ${roleLabels[profile.role]}.`)
-      }
 
       return profile
     } finally {

@@ -20,7 +20,7 @@ import { adminUsers, inscriptionLeads, schoolClasses, subjectsCatalog } from '..
 
 function AdminPage() {
   const { addToast } = useToast()
-  const { isAdmin, setRole } = useSession()
+  const { isAdmin } = useSession()
   const [leads, setLeads] = useState(inscriptionLeads)
   const [users, setUsers] = useState(adminUsers)
   const [classes, setClasses] = useState(schoolClasses)
@@ -42,10 +42,7 @@ function AdminPage() {
       <Card>
         <p className="text-sm font-black uppercase text-alert-coral">Acesso restrito</p>
         <h1 className="mt-1 text-3xl font-black text-brand-ink">Ferramentas administrativas</h1>
-        <p className="mt-3 text-slate-700">Alterne para Admin na barra superior ou use o botao abaixo para liberar as ferramentas de gestao.</p>
-        <Button className="mt-5" icon={CheckCircle2} onClick={() => setRole(roles.admin)} variant="royal">
-          Entrar como Admin
-        </Button>
+        <p className="mt-3 text-slate-700">Entre com o e-mail e senha de administrador para liberar as ferramentas de gestao.</p>
       </Card>
     )
   }
