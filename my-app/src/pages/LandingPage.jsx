@@ -1,3 +1,9 @@
+
+
+// Nexo - Landing Page atualizada em 2026
+
+
+
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
