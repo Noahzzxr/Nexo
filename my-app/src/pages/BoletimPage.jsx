@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
-import { BookOpen, Save, TrendingUp } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { BookOpen, Save, TrendingUp, ChevronDown } from 'lucide-react'
+import Avatar from '../components/ui/Avatar'
 import AreaGradesChart from '../components/charts/AreaGradesChart'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -9,6 +10,7 @@ import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
 import { saveGrades } from '../services/schoolService'
 import { gradeHistory, schoolClasses, studentProfile, subjects, subjectsCatalog } from '../data/mockData'
+import { mockProfiles } from '../context/roles'
 
 function GradeBar({ value }) {
   const approved = value >= 7
@@ -33,22 +35,33 @@ function BoletimPage() {
   const { addToast } = useToast()
   const { isAdmin, isSupabaseConfigured, isTeacher, roleLabel } = useSession()
   const canEditGrades = isTeacher || isAdmin
+
+  const [selectedStudent, setSelectedStudent] = useState(() => ({
+    id: mockProfiles.student.id,
+    name: mockProfiles.student.fullname || studentProfile.name,
+  }))
+
   const [gradeRows, setGradeRows] = useState(() =>
     subjects.map((subject) => ({
       ...subject,
       classId: schoolClasses[0].id,
-      studentId: '11111111-1111-4111-8111-111111111111',
+      studentId: mockProfiles.student.id,
       subjectId: subjectsCatalog.find((item) => item.name === subject.name)?.id,
     })),
   )
+
+  useEffect(() => {
+    // when teacher/admin selects another student, update studentId on rows
+    setGradeRows((current) => current.map((row) => ({ ...row, studentId: selectedStudent.id })))
+  }, [selectedStudent.id])
   const [isSaving, setIsSaving] = useState(false)
 
   const average = gradeRows.reduce((total, subject) => total + subject.average, 0) / gradeRows.length
   const absences = gradeRows.reduce((total, subject) => total + Number(subject.absences), 0)
 
   const teacherSummary = useMemo(
-    () => `${studentProfile.name} - ${schoolClasses[0].name}`,
-    [],
+    () => `${selectedStudent.name} - ${schoolClasses[0].name}`,
+    [selectedStudent],
   )
 
   const handleGradeChange = (subjectName, field, value) => {
@@ -89,6 +102,47 @@ function BoletimPage() {
         <p className="mt-2 text-muted">
           Evolucao por periodo, media final e acompanhamento de faltas. Perfil ativo: {roleLabel}.
         </p>
+        {canEditGrades ? (
+          <div className="mt-4">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">Selecionar aluno</label>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 rounded-lg border border-line bg-white px-3 py-2 shadow-sm">
+                <Avatar
+                  size="sm"
+                  name={selectedStudent.name}
+                  image={selectedStudent.id === mockProfiles.student.id ? studentProfile.avatar : undefined}
+                />
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-brand-ink truncate">{selectedStudent.name}</div>
+                  <div className="text-xs text-muted">{mockProfiles[Object.keys(mockProfiles).find((k) => mockProfiles[k].id === selectedStudent.id)]?.email || ''}</div>
+                </div>
+              </div>
+
+              <div className="relative">
+                <select
+                  value={selectedStudent.id}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    const profileEntry = Object.values(mockProfiles).find((p) => p.id === id)
+                    setSelectedStudent({ id, name: profileEntry?.fullname || profileEntry?.name || 'Aluno' })
+                  }}
+                  className="appearance-none rounded-lg border border-line bg-white px-10 py-2 pr-8 text-sm shadow-sm"
+                >
+                  {Object.values(mockProfiles)
+                    .filter((p) => p.role === 'student')
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.fullname}
+                      </option>
+                    ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                  <ChevronDown className="h-4 w-4 text-slate-500" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
