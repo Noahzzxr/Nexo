@@ -224,7 +224,7 @@ begin
     updated_at
   )
   values (
-    new_user_id::text,
+    new_user_id,
     new_user_id,
     jsonb_build_object('sub', new_user_id::text, 'email', generated_email),
     'email',
@@ -362,7 +362,7 @@ begin
     updated_at
   )
   values (
-    new_user_id::text,
+    new_user_id,
     new_user_id,
     jsonb_build_object('sub', new_user_id::text, 'email', account_email),
     'email',
@@ -715,7 +715,7 @@ begin
       updated_at
     )
     values (
-      admin_user_id::text,
+      admin_user_id,
       admin_user_id,
       jsonb_build_object('sub', admin_user_id::text, 'email', 'admin@progresso.edu'),
       'email',
