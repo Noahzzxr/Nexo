@@ -20,6 +20,8 @@ function Navbar() {
   const navigate = useNavigate()
   const { currentUser, isAdmin, isTeacher, logout, roleLabel } = useSession()
 
+  const homeLink = isAdmin ? '/admin' : '/dashboard'
+
   const visibleLinks = useMemo(() => {
     if (isAdmin) {
       return [{ label: 'Administrador', to: '/admin', icon: ShieldCheck }]
@@ -54,7 +56,7 @@ function Navbar() {
   return (
     <header className="fixed inset-x-0 top-0 z-40 w-full border-b border-line bg-white/95 backdrop-blur">
       <div className="flex h-16 w-full items-center justify-between gap-3 px-3 sm:px-5">
-        <NavLink className="flex min-w-0 shrink-0 items-center gap-2" to="/dashboard">
+        <NavLink className="flex min-w-0 shrink-0 items-center gap-2" to={homeLink}>
           <LogoMark />
           <span className="hidden leading-none lg:block">
             <span className="block text-sm font-black text-brand-ink">PROGRESSO</span>

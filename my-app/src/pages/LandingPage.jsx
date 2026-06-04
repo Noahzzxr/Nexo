@@ -17,10 +17,10 @@ import LogoMark from '../components/brand/LogoMark'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import InputField from '../components/ui/InputField'
-import { mockCredentials } from '../context/roles'
 import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
 import { createLead } from '../services/schoolService'
+import { mockCredentials, roles } from '../context/roles'
 import {
   courses,
   highlightPhotos,
@@ -53,7 +53,7 @@ function LandingPage() {
         password: loginForm.password,
       })
       addToast({ title: 'Sessao iniciada', message: `Bem-vindo, ${profile.fullname}.` })
-      navigate('/dashboard')
+      navigate(profile.role === roles.admin ? '/admin' : '/dashboard')
     } catch (error) {
       addToast({ title: 'Falha no login', message: error.message })
     }
@@ -371,4 +371,5 @@ function LandingPage() {
   )
 }
 
-export default LandingPage
+export default LandingPage;
+
