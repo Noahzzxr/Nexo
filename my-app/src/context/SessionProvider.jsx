@@ -23,6 +23,20 @@ const emptySchoolData = {
   teacherSubjects: [],
 }
 
+function normalizeAuthError(error) {
+  const message = error?.message || 'Nao foi possivel entrar.'
+
+  if (message.toLowerCase().includes('invalid api key')) {
+    return new Error('Chave anon do Supabase invalida. Copie a anon public key correta em Project Settings > API.')
+  }
+
+  if (message.toLowerCase().includes('database error querying schema')) {
+    return new Error('Erro no schema do Supabase. Reexecute o school_schema.sql atualizado no SQL Editor e confira se a anon key esta correta.')
+  }
+
+  return new Error(message)
+}
+
 function SessionProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -123,7 +137,7 @@ function SessionProvider({ children }) {
       setIsLoadingSession(true)
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) throw error
+        if (error) throw normalizeAuthError(error)
         return loadUserAndData(data.user)
       } finally {
         setIsLoadingSession(false)
