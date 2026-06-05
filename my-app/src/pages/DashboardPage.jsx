@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarDays, ClipboardList, FileText, MessageSquare, Users } from 'lucide-react'
+import { ArrowRight, CalendarDays, ClipboardList, FileText, MessageSquare, Trophy, Users } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
@@ -16,6 +16,7 @@ function DashboardPage() {
   )
   const userMessages = schoolData.messages.filter((message) => message.sender_id === currentUser.id || message.receiver_id === currentUser.id)
   const upcomingEvents = schoolData.calendarEvents.slice(0, 4)
+  const databaseProfile = schoolData.profiles.find((profile) => profile.id === currentUser.id) || currentUser
 
   const cards = isTeacher
     ? [
@@ -24,9 +25,9 @@ function DashboardPage() {
         ['Mensagens', userMessages.length],
       ]
     : [
+        ['Meu XP', Number(databaseProfile.total_xp || 0)],
         ['Atividades pendentes', pendingAssignments.length],
         ['Materiais disponiveis', schoolData.materials.length],
-        ['Mensagens', userMessages.length],
       ]
 
   return (
@@ -51,6 +52,19 @@ function DashboardPage() {
           </Card>
         ))}
       </div>
+
+      {!isTeacher ? (
+        <Card className="border-success/30 bg-success-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black uppercase text-success">Experiencia</p>
+              <h2 className="mt-1 text-2xl font-black text-brand-ink">{Number(databaseProfile.total_xp || 0)} XP acumulados</h2>
+              <p className="mt-2 text-sm text-copy">Complete quizzes em Jogos para ganhar mais XP.</p>
+            </div>
+            <Trophy className="h-10 w-10 text-success" />
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
         <Card>

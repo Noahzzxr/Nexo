@@ -15,6 +15,7 @@ const emptySchoolData = {
   materials: [],
   messages: [],
   profiles: [],
+  quizAttempts: [],
   quizzes: [],
   students: [],
   subjects: [],

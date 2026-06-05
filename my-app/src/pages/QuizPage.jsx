@@ -5,13 +5,18 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import { useSession } from '../hooks/useSession'
+import { useToast } from '../hooks/useToast'
+import { completeQuizAttempt } from '../services/schoolService'
 
 function QuizPage() {
   const { id } = useParams()
-  const { schoolData } = useSession()
+  const { isStudent, refreshSchoolData, schoolData } = useSession()
+  const { addToast } = useToast()
   const quiz = schoolData.quizzes.find((item) => item.id === id)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState([])
+  const [earnedXp, setEarnedXp] = useState(null)
+  const [isAwardingXp, setIsAwardingXp] = useState(false)
   const [selectedOption, setSelectedOption] = useState(null)
   const [isFinished, setIsFinished] = useState(false)
 
@@ -28,13 +33,31 @@ function QuizPage() {
   const score = answers.reduce((total, answer) => total + (answer.isCorrect ? 1 : 0), 0)
   const progress = ((isFinished ? quiz.questions.length : currentIndex) / Math.max(quiz.questions.length, 1)) * 100
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedOption === null || !currentQuestion) return
     const nextAnswers = [...answers, { isCorrect: selectedOption === currentQuestion.correct_option, questionId: currentQuestion.id, selectedOption }]
     setAnswers(nextAnswers)
     setSelectedOption(null)
     if (currentIndex + 1 >= quiz.questions.length) {
       setIsFinished(true)
+      if (isStudent) {
+        setIsAwardingXp(true)
+        try {
+          const correctAnswers = nextAnswers.reduce((total, answer) => total + (answer.isCorrect ? 1 : 0), 0)
+          const result = await completeQuizAttempt({
+            correctAnswers,
+            quizId: quiz.id,
+            totalQuestions: quiz.questions.length,
+          })
+          setEarnedXp(result?.earned_xp || 0)
+          await refreshSchoolData()
+          addToast({ title: 'XP recebido', message: `Voce ganhou ${result?.earned_xp || 0} XP neste quiz.` })
+        } catch (error) {
+          addToast({ title: 'Erro ao registrar XP', message: error.message })
+        } finally {
+          setIsAwardingXp(false)
+        }
+      }
       return
     }
     setCurrentIndex((current) => current + 1)
@@ -42,6 +65,7 @@ function QuizPage() {
 
   const resetQuiz = () => {
     setAnswers([])
+    setEarnedXp(null)
     setCurrentIndex(0)
     setIsFinished(false)
     setSelectedOption(null)
@@ -65,6 +89,11 @@ function QuizPage() {
           <h2 className="mt-4 text-3xl font-black text-brand-ink">Quiz concluido</h2>
           <p className="mt-3 text-slate-700">Voce acertou <strong>{score}</strong> de <strong>{quiz.questions.length}</strong> perguntas.</p>
           <Badge className="mt-5" tone={score / quiz.questions.length >= 0.7 ? 'success' : 'warning'}>{Math.round((score / quiz.questions.length) * 100)}%</Badge>
+          {isStudent ? (
+            <p className="mt-4 text-lg font-black text-brand-royal">
+              {isAwardingXp ? 'Registrando XP...' : `XP ganho: ${earnedXp ?? 0}`}
+            </p>
+          ) : null}
           <Button className="mt-6" icon={RotateCcw} onClick={resetQuiz} variant="royal">Refazer quiz</Button>
         </Card>
       ) : (

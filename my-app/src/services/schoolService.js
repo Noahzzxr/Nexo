@@ -62,6 +62,7 @@ export async function fetchSchoolData(currentUser) {
     messagesResult,
     quizzesResult,
     questionsResult,
+    quizAttemptsResult,
   ] = await Promise.all([
     supabase.from('profiles').select('*').order('fullname'),
     supabase.from('classes').select('*').order('name'),
@@ -77,6 +78,7 @@ export async function fetchSchoolData(currentUser) {
     supabase.from('messages').select('*').order('created_at', { ascending: true }),
     supabase.from('quizzes').select('*').order('title'),
     supabase.from('quiz_questions').select('*').order('created_at'),
+    supabase.from('quiz_attempts').select('*').order('completed_at', { ascending: false }),
   ])
 
   const results = [
@@ -94,6 +96,7 @@ export async function fetchSchoolData(currentUser) {
     messagesResult,
     quizzesResult,
     questionsResult,
+    quizAttemptsResult,
   ]
 
   const firstError = results.find((result) => result.error)?.error
@@ -135,6 +138,7 @@ export async function fetchSchoolData(currentUser) {
     materials,
     messages: messagesResult.data || [],
     profiles,
+    quizAttempts: quizAttemptsResult.data || [],
     quizzes,
     subjects,
     submissions,
@@ -281,6 +285,7 @@ export async function removeProfile(profileId) {
 export async function createCalendarEvent(payload) {
   const eventPayload = {
     class_id: payload.class_id || null,
+    color: payload.color,
     event_type: payload.event_type,
     start_date: payload.start_date,
     title: payload.title,
@@ -291,10 +296,24 @@ export async function createCalendarEvent(payload) {
   return data
 }
 
-export async function createQuizWithQuestions({ questions, subjectId, title }) {
+export async function updateCalendarEvent(eventId, payload) {
+  const eventPayload = {
+    class_id: payload.class_id || null,
+    color: payload.color,
+    event_type: payload.event_type,
+    start_date: payload.start_date,
+    title: payload.title,
+  }
+
+  const { data, error } = await supabase.from('calendar_events').update(eventPayload).eq('id', eventId).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function createQuizWithQuestions({ baseXp = 100, questions, subjectId, title }) {
   const { data: quiz, error: quizError } = await supabase
     .from('quizzes')
-    .insert({ subject_id: subjectId, title })
+    .insert({ base_xp: Number(baseXp) || 100, subject_id: subjectId, title })
     .select()
     .single()
 
@@ -311,6 +330,17 @@ export async function createQuizWithQuestions({ questions, subjectId, title }) {
   if (questionsError) throw questionsError
 
   return { ...quiz, questions: savedQuestions || [] }
+}
+
+export async function completeQuizAttempt({ correctAnswers, quizId, totalQuestions }) {
+  const { data, error } = await supabase.rpc('complete_quiz_attempt', {
+    correct_answers: correctAnswers,
+    input_quiz_id: quizId,
+    total_questions: totalQuestions,
+  })
+
+  if (error) throw error
+  return Array.isArray(data) ? data[0] : data
 }
 
 export async function updateProfileAvatar({ file, userId }) {

@@ -26,7 +26,10 @@ function Navbar() {
 
   const visibleLinks = useMemo(() => {
     if (isAdmin) {
-      return [{ label: 'Administrador', to: '/admin', icon: ShieldCheck }]
+      return [
+        { label: 'Administrador', to: '/admin', icon: ShieldCheck },
+        { label: 'Calendario', to: '/calendario', icon: CalendarDays },
+      ]
     }
 
     if (isTeacher) {
@@ -35,6 +38,7 @@ function Navbar() {
         { label: 'Boletim', to: '/boletim', icon: BookOpen },
         { label: 'Atividades', to: '/atividades', icon: ClipboardList },
         { label: 'Jogos', to: '/jogos', icon: Gamepad2 },
+        { label: 'Calendario', to: '/calendario', icon: CalendarDays },
         { label: 'Bater papo', to: '/conversas', icon: MessageSquare },
         { label: 'Perfil', to: '/perfil', icon: UserCircle },
       ]
