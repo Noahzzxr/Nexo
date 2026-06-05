@@ -245,16 +245,31 @@ export async function assignTeacher(payload) {
 }
 
 export async function createSchoolAccount(profile) {
-  const { data, error } = await supabase.rpc('create_school_account', {
-    account_email: profile.email,
-    account_fullname: profile.fullname,
-    account_role: profile.role,
-    account_cpf: profile.cpf || null,
-    account_class_id: profile.classId || null,
+  const { data, error } = await supabase.functions.invoke('invite-school-user', {
+    body: {
+      classId: profile.classId || null,
+      cpf: profile.cpf || null,
+      email: profile.email,
+      fullname: profile.fullname,
+      role: profile.role,
+    },
   })
 
-  if (error) throw error
-  return Array.isArray(data) ? data[0] : data
+  if (error) {
+    let message = error.message
+
+    try {
+      const responseBody = await error.context?.json?.()
+      if (responseBody?.error) message = responseBody.error
+    } catch {
+      // Keep the original Supabase error when the response body is not JSON.
+    }
+
+    throw new Error(message)
+  }
+
+  if (data?.error) throw new Error(data.error)
+  return data
 }
 
 export async function removeProfile(profileId) {
@@ -264,9 +279,38 @@ export async function removeProfile(profileId) {
 }
 
 export async function createCalendarEvent(payload) {
-  const { data, error } = await supabase.from('calendar_events').insert(payload).select().single()
+  const eventPayload = {
+    class_id: payload.class_id || null,
+    event_type: payload.event_type,
+    start_date: payload.start_date,
+    title: payload.title,
+  }
+
+  const { data, error } = await supabase.from('calendar_events').insert(eventPayload).select().single()
   if (error) throw error
   return data
+}
+
+export async function createQuizWithQuestions({ questions, subjectId, title }) {
+  const { data: quiz, error: quizError } = await supabase
+    .from('quizzes')
+    .insert({ subject_id: subjectId, title })
+    .select()
+    .single()
+
+  if (quizError) throw quizError
+
+  const questionPayload = questions.map((question) => ({
+    correct_option: Number(question.correctOption),
+    options: question.options,
+    question_text: question.text,
+    quiz_id: quiz.id,
+  }))
+
+  const { data: savedQuestions, error: questionsError } = await supabase.from('quiz_questions').insert(questionPayload).select()
+  if (questionsError) throw questionsError
+
+  return { ...quiz, questions: savedQuestions || [] }
 }
 
 export async function updateProfileAvatar({ file, userId }) {

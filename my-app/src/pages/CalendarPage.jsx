@@ -41,7 +41,7 @@ function CalendarPage() {
             <InputField as="select" label="Tipo" name="type" onChange={(event) => setEventForm((current) => ({ ...current, event_type: event.target.value }))} options={[{ label: 'Atividade', value: 'activity' }, { label: 'Avaliacao', value: 'exam' }, { label: 'Feriado', value: 'holiday' }]} value={eventForm.event_type} />
             <InputField label="Data e hora" name="start" onChange={(event) => setEventForm((current) => ({ ...current, start_date: event.target.value }))} required type="datetime-local" value={eventForm.start_date} />
             <Button className="self-end" icon={PlusCircle} type="submit" variant="royal">Cadastrar</Button>
-            <InputField as="select" className="md:col-span-4" label="Turma" name="classId" onChange={(event) => setEventForm((current) => ({ ...current, class_id: event.target.value }))} options={[{ label: 'Selecione', value: '' }, ...schoolData.classes.map((item) => ({ label: item.name, value: item.id }))]} required value={eventForm.class_id} />
+            <InputField as="select" className="md:col-span-4" label="Turma" name="classId" onChange={(event) => setEventForm((current) => ({ ...current, class_id: event.target.value }))} options={[{ label: 'Evento geral', value: '' }, ...schoolData.classes.map((item) => ({ label: item.name, value: item.id }))]} value={eventForm.class_id} />
           </form>
         </Card>
       ) : null}
@@ -54,7 +54,7 @@ function CalendarPage() {
               <Badge tone={item.event_type === 'exam' ? 'coral' : item.event_type === 'activity' ? 'success' : 'royal'}>{item.event_type}</Badge>
               <h2 className="mt-4 font-black text-brand-ink">{item.title}</h2>
               <p className="mt-2 text-sm text-muted">{new Date(item.start_date).toLocaleString('pt-BR')}</p>
-              <p className="mt-1 text-sm text-muted">{schoolClass?.name || 'Turma nao informada'}</p>
+              <p className="mt-1 text-sm text-muted">{schoolClass?.name || 'Evento geral'}</p>
             </Card>
           )
         })}

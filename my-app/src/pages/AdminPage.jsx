@@ -44,7 +44,7 @@ function AdminPage() {
       setCreatedCredential(created)
       setUserForm({ classId: '', cpf: '', email: '', fullname: '', role: roles.student })
       await refreshSchoolData()
-      addToast({ title: 'Conta criada', message: `${created.fullname} foi cadastrado.` })
+      addToast({ title: 'Convite enviado', message: `${created.fullname} recebeu o convite por e-mail.` })
     } catch (error) {
       addToast({ title: 'Erro ao criar conta', message: error.message })
     }
@@ -112,25 +112,25 @@ function AdminPage() {
 
       {createdCredential ? (
         <Card className="border-success bg-success-soft">
-          <p className="text-sm font-black uppercase text-success">Credencial gerada</p>
+          <p className="text-sm font-black uppercase text-success">Convite enviado</p>
           <p className="mt-2 font-black text-brand-ink">{createdCredential.fullname}</p>
           <p className="text-sm text-copy">E-mail: {createdCredential.email}</p>
           {createdCredential.registration_number ? <p className="text-sm text-copy">Matricula: {createdCredential.registration_number}</p> : null}
-          <p className="text-sm font-bold text-copy">Senha inicial: {createdCredential.initial_password}</p>
+          <p className="text-sm font-bold text-copy">O usuario recebeu um e-mail para aceitar o convite e acessar a conta.</p>
         </Card>
       ) : null}
 
       <Card>
         <div className="mb-5">
           <p className="text-sm font-black uppercase text-alert-coral">Contas</p>
-          <h2 className="mt-1 text-xl font-black text-brand-ink">Criar aluno ou professor</h2>
+          <h2 className="mt-1 text-xl font-black text-brand-ink">Convidar aluno ou professor</h2>
         </div>
         <form className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_150px_1fr_auto]" onSubmit={handleAddUser}>
           <InputField label="Nome" name="fullname" onChange={(event) => setUserForm((current) => ({ ...current, fullname: event.target.value }))} required value={userForm.fullname} />
           <InputField label="E-mail" name="email" onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} required type="email" value={userForm.email} />
           <InputField as="select" label="Perfil" name="role" onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value }))} options={[roles.student, roles.teacher].map((role) => ({ label: roleLabels[role], value: role }))} value={userForm.role} />
           <InputField label="CPF" name="cpf" onChange={(event) => setUserForm((current) => ({ ...current, cpf: event.target.value }))} value={userForm.cpf} />
-          <Button className="self-end" icon={UserPlus} type="submit" variant="royal">Criar</Button>
+          <Button className="self-end" icon={UserPlus} type="submit" variant="royal">Enviar convite</Button>
           {userForm.role === roles.student ? (
             <InputField as="select" className="md:col-span-2 xl:col-span-5" label="Turma do aluno" name="classId" onChange={(event) => setUserForm((current) => ({ ...current, classId: event.target.value }))} options={[{ label: 'Sem turma', value: '' }, ...classOptions]} value={userForm.classId} />
           ) : null}

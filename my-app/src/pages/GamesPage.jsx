@@ -1,33 +1,172 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Gamepad2, Play } from 'lucide-react'
+import { Gamepad2, PlusCircle, Play, Trash2 } from 'lucide-react'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import InputField from '../components/ui/InputField'
 import { useSession } from '../hooks/useSession'
-import RankingPage from './RankingPage'
+import { useToast } from '../hooks/useToast'
+import { createQuizWithQuestions } from '../services/schoolService'
+
+const emptyQuestion = () => ({
+  correctOption: 0,
+  optionA: '',
+  optionB: '',
+  optionC: '',
+  optionD: '',
+  text: '',
+})
 
 function GamesPage() {
-  const { isTeacher, schoolData } = useSession()
+  const { addToast } = useToast()
+  const { isAdmin, isTeacher, refreshSchoolData, schoolData } = useSession()
+  const [quizForm, setQuizForm] = useState({ subjectId: '', title: '' })
+  const [questions, setQuestions] = useState([emptyQuestion()])
+  const canCreate = isAdmin || isTeacher
+  const subjectOptions = useMemo(
+    () => [{ label: 'Selecione', value: '' }, ...schoolData.subjects.map((subject) => ({ label: subject.name, value: subject.id }))],
+    [schoolData.subjects],
+  )
 
-  if (isTeacher) return <RankingPage />
+  const updateQuestion = (index, key, value) => {
+    setQuestions((current) => current.map((question, questionIndex) => (questionIndex === index ? { ...question, [key]: value } : question)))
+  }
+
+  const addQuestion = () => {
+    setQuestions((current) => [...current, emptyQuestion()])
+  }
+
+  const removeQuestion = (index) => {
+    setQuestions((current) => (current.length === 1 ? current : current.filter((_, questionIndex) => questionIndex !== index)))
+  }
+
+  const handleCreateQuiz = async (event) => {
+    event.preventDefault()
+
+    const payloadQuestions = questions.map((question) => ({
+      correctOption: Number(question.correctOption),
+      options: [question.optionA, question.optionB, question.optionC, question.optionD].map((option) => option.trim()),
+      text: question.text.trim(),
+    }))
+
+    if (payloadQuestions.some((question) => !question.text || question.options.some((option) => !option))) {
+      addToast({ title: 'Quiz incompleto', message: 'Preencha a pergunta e as quatro alternativas.' })
+      return
+    }
+
+    try {
+      await createQuizWithQuestions({
+        questions: payloadQuestions,
+        subjectId: quizForm.subjectId,
+        title: quizForm.title,
+      })
+      setQuizForm({ subjectId: '', title: '' })
+      setQuestions([emptyQuestion()])
+      await refreshSchoolData()
+      addToast({ title: 'Quiz criado', message: 'Jogo salvo no banco de dados.' })
+    } catch (error) {
+      addToast({ title: 'Erro ao criar quiz', message: error.message })
+    }
+  }
 
   return (
     <div className="grid gap-6">
       <div>
         <p className="text-sm font-black uppercase text-alert-coral">Quizzes</p>
         <h1 className="mt-1 text-3xl font-black text-brand-ink">Jogos educativos</h1>
-        <p className="mt-2 text-muted">Quizzes carregados das tabelas quizzes e quiz_questions.</p>
+        <p className="mt-2 text-muted">Crie e jogue quizzes conectados ao banco de dados.</p>
       </div>
+
+      {canCreate ? (
+        <Card>
+          <form className="grid gap-5" onSubmit={handleCreateQuiz}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <InputField
+                label="Titulo do quiz"
+                name="title"
+                onChange={(event) => setQuizForm((current) => ({ ...current, title: event.target.value }))}
+                required
+                value={quizForm.title}
+              />
+              <InputField
+                as="select"
+                label="Disciplina"
+                name="subjectId"
+                onChange={(event) => setQuizForm((current) => ({ ...current, subjectId: event.target.value }))}
+                options={subjectOptions}
+                required
+                value={quizForm.subjectId}
+              />
+            </div>
+
+            <div className="grid gap-4">
+              {questions.map((question, index) => (
+                <div className="rounded-lg border border-line bg-slate-50 p-4" key={index}>
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge tone="dark">Pergunta {index + 1}</Badge>
+                    <Button disabled={questions.length === 1} icon={Trash2} onClick={() => removeQuestion(index)} type="button" variant="ghost">
+                      Remover
+                    </Button>
+                  </div>
+                  <div className="mt-4 grid gap-4">
+                    <InputField
+                      label="Enunciado"
+                      name={`question-${index}`}
+                      onChange={(event) => updateQuestion(index, 'text', event.target.value)}
+                      required
+                      value={question.text}
+                    />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <InputField label="Alternativa A" name={`a-${index}`} onChange={(event) => updateQuestion(index, 'optionA', event.target.value)} required value={question.optionA} />
+                      <InputField label="Alternativa B" name={`b-${index}`} onChange={(event) => updateQuestion(index, 'optionB', event.target.value)} required value={question.optionB} />
+                      <InputField label="Alternativa C" name={`c-${index}`} onChange={(event) => updateQuestion(index, 'optionC', event.target.value)} required value={question.optionC} />
+                      <InputField label="Alternativa D" name={`d-${index}`} onChange={(event) => updateQuestion(index, 'optionD', event.target.value)} required value={question.optionD} />
+                    </div>
+                    <InputField
+                      as="select"
+                      label="Resposta correta"
+                      name={`correct-${index}`}
+                      onChange={(event) => updateQuestion(index, 'correctOption', event.target.value)}
+                      options={[
+                        { label: 'Alternativa A', value: 0 },
+                        { label: 'Alternativa B', value: 1 },
+                        { label: 'Alternativa C', value: 2 },
+                        { label: 'Alternativa D', value: 3 },
+                      ]}
+                      value={question.correctOption}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button icon={PlusCircle} onClick={addQuestion} type="button" variant="soft">
+                Adicionar pergunta
+              </Button>
+              <Button icon={Gamepad2} type="submit" variant="royal">
+                Salvar quiz
+              </Button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {schoolData.quizzes.map((quiz) => {
           const subject = schoolData.subjects.find((item) => item.id === quiz.subject_id)
           return (
             <Card className="flex h-full flex-col" key={quiz.id}>
-              <span className="grid h-11 w-11 place-items-center rounded-lg bg-brand-royal-soft text-brand-royal"><Gamepad2 className="h-5 w-5" /></span>
+              <span className="grid h-11 w-11 place-items-center rounded-lg bg-brand-royal-soft text-brand-royal">
+                <Gamepad2 className="h-5 w-5" />
+              </span>
               <h2 className="mt-5 text-xl font-black text-brand-ink">{quiz.title}</h2>
               <p className="mt-2 text-sm text-muted">{subject?.name || 'Sem disciplina'}</p>
               <Badge className="mt-4" tone="royal">{quiz.questions.length} perguntas</Badge>
-              <Button as={Link} className="mt-auto w-full" icon={Play} to={`/quiz/${quiz.id}`} variant="royal">Jogar agora</Button>
+              <Button as={Link} className="mt-auto w-full" disabled={!quiz.questions.length} icon={Play} to={`/quiz/${quiz.id}`} variant="royal">
+                Jogar agora
+              </Button>
             </Card>
           )
         })}

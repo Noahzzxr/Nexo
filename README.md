@@ -44,6 +44,36 @@ my-app/supabase/school_schema.sql
 
 Esse arquivo cria as tabelas, politicas RLS, funcoes RPC, bucket de anexos e a conta admin inicial.
 
+## Convites Por E-mail
+
+O painel admin cria alunos e professores por convite de e-mail usando a Edge Function:
+
+```txt
+my-app/supabase/functions/invite-school-user
+```
+
+Antes de usar o convite, configure as secrets no Supabase:
+
+```bash
+cd my-app
+supabase secrets set SITE_URL=http://localhost:5173
+```
+
+Depois publique a function:
+
+```bash
+supabase functions deploy invite-school-user
+```
+
+A `SUPABASE_SERVICE_ROLE_KEY` nunca deve ir no React, no `.env` publico ou no GitHub.
+Nas Edge Functions hospedadas, o Supabase ja injeta `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`; por isso esses nomes nao precisam ser definidos manualmente pela CLI.
+
+Em `Authentication > URL Configuration`, adicione tambem:
+
+```txt
+http://localhost:5173/definir-senha
+```
+
 ## Admin Inicial
 
 ```txt
@@ -57,7 +87,7 @@ Depois do primeiro login, use o painel admin para cadastrar alunos e professores
 
 Alunos e professores nao possuem cadastro publico. O admin cria as contas dentro do sistema.
 
-Ao criar um aluno, o sistema gera uma matricula unica e usa essa matricula como senha inicial. Ao criar um professor, o sistema gera uma senha inicial que deve ser compartilhada pelo admin.
+Ao criar um aluno, o sistema gera uma matricula unica e envia o convite para o e-mail cadastrado. Professores tambem recebem o convite diretamente por e-mail.
 
 ## Scripts Uteis
 

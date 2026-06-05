@@ -12,6 +12,7 @@ import FrequencyPage from './pages/FrequencyPage'
 import GamesPage from './pages/GamesPage'
 import LandingPage from './pages/LandingPage'
 import MaterialsPage from './pages/MaterialsPage'
+import PasswordSetupPage from './pages/PasswordSetupPage'
 import ProfilePage from './pages/ProfilePage'
 import QuizPage from './pages/QuizPage'
 import RankingPage from './pages/RankingPage'
@@ -22,6 +23,7 @@ function App() {
       <SessionProvider>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/definir-senha" element={<PasswordSetupPage />} />
           <Route element={<MainLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/boletim" element={<BoletimPage />} />
