@@ -194,6 +194,10 @@ begin
     email_confirmed_at,
     raw_app_meta_data,
     raw_user_meta_data,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token,
     created_at,
     updated_at
   )
@@ -207,6 +211,10 @@ begin
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('fullname', lead_record.full_name, 'role', 'student'),
+    '',
+    '',
+    '',
+    '',
     now(),
     now()
   )
@@ -333,6 +341,10 @@ begin
     email_confirmed_at,
     raw_app_meta_data,
     raw_user_meta_data,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token,
     created_at,
     updated_at
   )
@@ -346,6 +358,10 @@ begin
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('fullname', account_fullname, 'role', account_role),
+    '',
+    '',
+    '',
+    '',
     now(),
     now()
   )
@@ -687,6 +703,10 @@ begin
       email_confirmed_at,
       raw_app_meta_data,
       raw_user_meta_data,
+      confirmation_token,
+      email_change,
+      email_change_token_new,
+      recovery_token,
       created_at,
       updated_at
     )
@@ -700,9 +720,25 @@ begin
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       jsonb_build_object('fullname', 'Admin Progresso', 'role', 'admin'),
+      '',
+      '',
+      '',
+      '',
       now(),
       now()
-    );
+    )
+    on conflict (email) do update
+    set
+      encrypted_password = excluded.encrypted_password,
+      email_confirmed_at = coalesce(auth.users.email_confirmed_at, excluded.email_confirmed_at),
+      raw_app_meta_data = excluded.raw_app_meta_data,
+      raw_user_meta_data = excluded.raw_user_meta_data,
+      confirmation_token = '',
+      email_change = '',
+      email_change_token_new = '',
+      recovery_token = '',
+      updated_at = now()
+    returning auth.users.id into admin_user_id;
 
     insert into auth.identities (
       id,
@@ -724,7 +760,11 @@ begin
       now(),
       now()
     )
-    on conflict (provider, provider_id) do nothing;
+    on conflict (provider, provider_id) do update
+    set
+      user_id = excluded.user_id,
+      identity_data = excluded.identity_data,
+      updated_at = now();
 
     insert into public.profiles (
       id,
@@ -737,7 +777,20 @@ begin
       'Admin Progresso',
       'admin@progresso.edu',
       'admin'
-    );
+    )
+    on conflict (id) do update
+    set
+      fullname = excluded.fullname,
+      email = excluded.email,
+      role = excluded.role;
   end if;
+
+  update auth.users
+  set
+    confirmation_token = coalesce(confirmation_token, ''),
+    email_change = coalesce(email_change, ''),
+    email_change_token_new = coalesce(email_change_token_new, ''),
+    recovery_token = coalesce(recovery_token, '')
+  where email = 'admin@progresso.edu';
 end;
 $$;
