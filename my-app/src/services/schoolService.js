@@ -277,9 +277,9 @@ export async function createSchoolAccount(profile) {
 }
 
 export async function removeProfile(profileId) {
-  const { error } = await supabase.from('profiles').delete().eq('id', profileId)
+  const { data, error } = await supabase.rpc('remove_school_user', { profile_id: profileId })
   if (error) throw error
-  return { id: profileId }
+  return Array.isArray(data) ? data[0] : data
 }
 
 export async function createCalendarEvent(payload) {

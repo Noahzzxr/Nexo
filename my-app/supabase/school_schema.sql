@@ -447,6 +447,48 @@ $$;
 
 grant execute on function public.create_school_account(text, text, text, text, uuid) to authenticated;
 
+create or replace function public.remove_school_user(profile_id uuid)
+returns table (
+  id uuid,
+  deleted boolean
+)
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  target_role text;
+begin
+  if public.current_user_role() <> 'admin' then
+    raise exception 'only admins can remove school users';
+  end if;
+
+  select role into target_role
+    from public.profiles
+   where public.profiles.id = profile_id;
+
+  if target_role is null then
+    raise exception 'profile not found';
+  end if;
+
+  if target_role = 'admin' then
+    raise exception 'admin profiles cannot be removed';
+  end if;
+
+  delete from auth.users
+   where auth.users.id = profile_id;
+
+  if not found then
+    delete from public.profiles
+     where public.profiles.id = profile_id;
+  end if;
+
+  return query select profile_id, true;
+end;
+$$;
+
+grant execute on function public.remove_school_user(uuid) to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.classes enable row level security;
 alter table public.subjects enable row level security;

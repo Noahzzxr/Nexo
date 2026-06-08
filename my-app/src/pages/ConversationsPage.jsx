@@ -9,11 +9,14 @@ import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
 import { sendMessage } from '../services/schoolService'
 
+const makeTemporaryMessageId = () => `pending-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
+
 function ConversationsPage() {
   const { addToast } = useToast()
   const { currentUser, isAdmin, isTeacher, refreshSchoolData, roleLabel, schoolData } = useSession()
   const [activeId, setActiveId] = useState('')
   const [messageText, setMessageText] = useState('')
+  const [optimisticMessages, setOptimisticMessages] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
 
   const contacts = useMemo(() => {
@@ -28,8 +31,15 @@ function ConversationsPage() {
 
   const filteredContacts = contacts.filter((contact) => `${contact.fullname} ${contact.email}`.toLowerCase().includes(searchTerm.toLowerCase()))
   const active = contacts.find((contact) => contact.id === activeId) || contacts[0]
+  const messages = useMemo(() => {
+    const savedMessageIds = new Set(schoolData.messages.map((message) => message.id))
+    return [...schoolData.messages, ...optimisticMessages.filter((message) => !savedMessageIds.has(message.id))].sort(
+      (first, second) => new Date(first.created_at).getTime() - new Date(second.created_at).getTime(),
+    )
+  }, [optimisticMessages, schoolData.messages])
+
   const activeMessages = active
-    ? schoolData.messages.filter(
+    ? messages.filter(
         (message) =>
           (message.sender_id === currentUser.id && message.receiver_id === active.id) ||
           (message.sender_id === active.id && message.receiver_id === currentUser.id),
@@ -41,11 +51,25 @@ function ConversationsPage() {
     const content = messageText.trim()
     if (!content || !active) return
 
+    const temporaryId = makeTemporaryMessageId()
+    const pendingMessage = {
+      content,
+      created_at: new Date().toISOString(),
+      id: temporaryId,
+      receiver_id: active.id,
+      sender_id: currentUser.id,
+    }
+
+    setOptimisticMessages((current) => [...current, pendingMessage])
+    setMessageText('')
+
     try {
-      await sendMessage({ content, receiverId: active.id, senderId: currentUser.id })
-      setMessageText('')
+      const savedMessage = await sendMessage({ content, receiverId: active.id, senderId: currentUser.id })
+      setOptimisticMessages((current) => current.map((message) => (message.id === temporaryId ? savedMessage : message)))
       await refreshSchoolData()
     } catch (error) {
+      setOptimisticMessages((current) => current.filter((message) => message.id !== temporaryId))
+      setMessageText(content)
       addToast({ title: 'Erro ao enviar mensagem', message: error.message })
     }
   }
