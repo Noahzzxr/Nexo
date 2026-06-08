@@ -31,12 +31,19 @@ function ConversationsPage() {
 
     const channel = supabase
       .channel(`messages:${currentUser.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, ({ new: message }) => {
-        if (message.sender_id !== currentUser.id && message.receiver_id !== currentUser.id) return
-
-        setLiveMessages((current) => (current.some((item) => item.id === message.id) ? current : [...current, message]))
-        setOptimisticMessages((current) => current.filter((item) => item.id !== message.id))
-      })
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${currentUser.id}`,
+        },
+        ({ new: message }) => {
+          setLiveMessages((current) => (current.some((item) => item.id === message.id) ? current : [...current, message]))
+          setOptimisticMessages((current) => current.filter((item) => item.id !== message.id))
+        },
+      )
       .subscribe()
 
     return () => {
