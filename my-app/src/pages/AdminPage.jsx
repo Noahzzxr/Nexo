@@ -4,6 +4,7 @@ import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import InputField from '../components/ui/InputField'
+import Modal from '../components/ui/Modal'
 import Table from '../components/ui/Table'
 import { roles, roleLabels } from '../context/roles'
 import { useSession } from '../hooks/useSession'
@@ -18,13 +19,17 @@ function AdminPage() {
   const [classForm, setClassForm] = useState({ name: '', school_year: String(new Date().getFullYear()) })
   const [subjectForm, setSubjectForm] = useState({ name: '' })
   const [linkForm, setLinkForm] = useState({ class_id: '', subject_id: '', teacher_id: '' })
+  const [profileToRemove, setProfileToRemove] = useState(null)
+  const [removedProfileIds, setRemovedProfileIds] = useState([])
+  const [removingProfileId, setRemovingProfileId] = useState('')
 
-  const teachers = schoolData.teachers
-  const users = schoolData.profiles
+  const visibleUsers = schoolData.profiles.filter((user) => !removedProfileIds.includes(user.id))
+  const visibleStudents = visibleUsers.filter((user) => user.role === roles.student)
+  const visibleTeachers = visibleUsers.filter((user) => user.role === roles.teacher)
 
   const classOptions = useMemo(() => schoolData.classes.map((item) => ({ label: item.name, value: item.id })), [schoolData.classes])
   const subjectOptions = useMemo(() => schoolData.subjects.map((item) => ({ label: item.name, value: item.id })), [schoolData.subjects])
-  const teacherOptions = useMemo(() => teachers.map((item) => ({ label: item.fullname, value: item.id })), [teachers])
+  const teacherOptions = useMemo(() => visibleTeachers.map((item) => ({ label: item.fullname, value: item.id })), [visibleTeachers])
 
   if (!isAdmin) {
     return (
@@ -50,13 +55,22 @@ function AdminPage() {
     }
   }
 
-  const handleRemoveUser = async (user) => {
+  const handleRemoveUser = async () => {
+    if (!profileToRemove) return
+
+    setRemovingProfileId(profileToRemove.id)
+
     try {
-      await removeProfile(user.id)
+      await removeProfile(profileToRemove.id)
+      setRemovedProfileIds((current) => (current.includes(profileToRemove.id) ? current : [...current, profileToRemove.id]))
+      setProfileToRemove(null)
       await refreshSchoolData()
-      addToast({ title: 'Usuario removido', message: `${user.fullname} foi removido.` })
+      setRemovedProfileIds((current) => current.filter((id) => id !== profileToRemove.id))
+      addToast({ title: 'Usuario removido', message: `${profileToRemove.fullname} foi removido.` })
     } catch (error) {
       addToast({ title: 'Erro ao remover usuario', message: error.message })
+    } finally {
+      setRemovingProfileId('')
     }
   }
 
@@ -105,8 +119,8 @@ function AdminPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card><p className="text-sm font-black uppercase text-muted">Alunos</p><p className="mt-2 text-4xl font-black text-brand-ink">{schoolData.students.length}</p></Card>
-        <Card><p className="text-sm font-black uppercase text-muted">Professores</p><p className="mt-2 text-4xl font-black text-brand-ink">{teachers.length}</p></Card>
+        <Card><p className="text-sm font-black uppercase text-muted">Alunos</p><p className="mt-2 text-4xl font-black text-brand-ink">{visibleStudents.length}</p></Card>
+        <Card><p className="text-sm font-black uppercase text-muted">Professores</p><p className="mt-2 text-4xl font-black text-brand-ink">{visibleTeachers.length}</p></Card>
         <Card><p className="text-sm font-black uppercase text-muted">Turmas</p><p className="mt-2 text-4xl font-black text-brand-ink">{schoolData.classes.length}</p></Card>
       </div>
 
@@ -137,13 +151,13 @@ function AdminPage() {
         </form>
 
         <Table columns={['Nome', 'E-mail', 'Perfil', 'Matricula', 'Acao']}>
-          {users.map((user) => (
+          {visibleUsers.map((user) => (
             <tr className="bg-white even:bg-slate-50" key={user.id}>
               <td className="px-4 py-4 font-black text-brand-ink">{user.fullname}</td>
               <td className="px-4 py-4 text-slate-700">{user.email}</td>
               <td className="px-4 py-4"><Badge tone={user.role === roles.admin ? 'dark' : user.role === roles.teacher ? 'royal' : 'success'}>{roleLabels[user.role]}</Badge></td>
               <td className="px-4 py-4 text-slate-700">{user.registration_number || '-'}</td>
-              <td className="px-4 py-4"><Button disabled={user.role === roles.admin} icon={Trash2} onClick={() => handleRemoveUser(user)} variant="coral">Remover</Button></td>
+              <td className="px-4 py-4"><Button disabled={user.role === roles.admin || removingProfileId === user.id} icon={Trash2} onClick={() => setProfileToRemove(user)} variant="coral">{removingProfileId === user.id ? 'Removendo' : 'Remover'}</Button></td>
             </tr>
           ))}
         </Table>
@@ -180,6 +194,20 @@ function AdminPage() {
           </form>
         </Card>
       </div>
+
+      {profileToRemove ? (
+        <Modal onClose={() => setProfileToRemove(null)} title="Remover usuario">
+          <div className="grid gap-5">
+            <p className="text-slate-700">Confirme a exclusao de {profileToRemove.fullname}. Esta acao remove o perfil e os registros vinculados no banco.</p>
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button disabled={Boolean(removingProfileId)} onClick={() => setProfileToRemove(null)} variant="ghost">Cancelar</Button>
+              <Button disabled={Boolean(removingProfileId)} icon={Trash2} onClick={handleRemoveUser} variant="coral">
+                {removingProfileId ? 'Removendo' : 'Confirmar remocao'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   )
 }

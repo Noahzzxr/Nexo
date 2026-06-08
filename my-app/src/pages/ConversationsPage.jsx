@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Search, Send } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
@@ -7,6 +7,7 @@ import Card from '../components/ui/Card'
 import { roles } from '../context/roles'
 import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
+import { supabase } from '../lib/supabase'
 import { sendMessage } from '../services/schoolService'
 
 const makeTemporaryMessageId = () => `pending-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
@@ -15,9 +16,28 @@ function ConversationsPage() {
   const { addToast } = useToast()
   const { currentUser, isAdmin, isTeacher, refreshSchoolData, roleLabel, schoolData } = useSession()
   const [activeId, setActiveId] = useState('')
+  const [liveMessages, setLiveMessages] = useState([])
   const [messageText, setMessageText] = useState('')
   const [optimisticMessages, setOptimisticMessages] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
+
+  useEffect(() => {
+    if (!supabase || !currentUser?.id) return undefined
+
+    const channel = supabase
+      .channel(`messages:${currentUser.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, ({ new: message }) => {
+        if (message.sender_id !== currentUser.id && message.receiver_id !== currentUser.id) return
+
+        setLiveMessages((current) => (current.some((item) => item.id === message.id) ? current : [...current, message]))
+        setOptimisticMessages((current) => current.filter((item) => item.id !== message.id))
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [currentUser?.id])
 
   const contacts = useMemo(() => {
     if (isAdmin) return schoolData.profiles.filter((profile) => profile.id !== currentUser.id)
@@ -32,11 +52,13 @@ function ConversationsPage() {
   const filteredContacts = contacts.filter((contact) => `${contact.fullname} ${contact.email}`.toLowerCase().includes(searchTerm.toLowerCase()))
   const active = contacts.find((contact) => contact.id === activeId) || contacts[0]
   const messages = useMemo(() => {
-    const savedMessageIds = new Set(schoolData.messages.map((message) => message.id))
-    return [...schoolData.messages, ...optimisticMessages.filter((message) => !savedMessageIds.has(message.id))].sort(
+    const mergedMessages = [...schoolData.messages, ...liveMessages, ...optimisticMessages]
+    const messagesById = new Map(mergedMessages.map((message) => [message.id, message]))
+
+    return [...messagesById.values()].sort(
       (first, second) => new Date(first.created_at).getTime() - new Date(second.created_at).getTime(),
     )
-  }, [optimisticMessages, schoolData.messages])
+  }, [liveMessages, optimisticMessages, schoolData.messages])
 
   const activeMessages = active
     ? messages.filter(
