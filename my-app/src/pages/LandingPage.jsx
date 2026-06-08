@@ -160,8 +160,8 @@ function LandingPage() {
             <Link className="flex items-center gap-3" to="/">
               <LogoMark light />
               <span>
-                <span className="block text-sm font-black">PROGRESSO</span>
-                <span className="block text-[10px] font-bold uppercase text-white/75">Colegio Inteligente</span>
+                <span className="block text-sm font-black">NEXO</span>
+                <span className="block text-[10px] font-bold uppercase text-white/75">Portal Inteligente</span>
               </span>
             </Link>
             <nav className="hidden items-center gap-5 text-sm font-bold text-white/85 md:flex">
@@ -191,7 +191,7 @@ function LandingPage() {
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-14 pt-28 sm:px-6">
           <div className="max-w-3xl">
             <Badge tone="warning">Matriculas 2026</Badge>
-            <h1 className="mt-6 text-5xl font-black leading-tight text-white md:text-6xl">Colegio Progresso</h1>
+            <h1 className="mt-6 text-5xl font-black leading-tight text-white md:text-6xl">Nexo</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-white/86">
               Ensino conectado, acompanhamento claro e uma rotina escolar inteligente para alunos, familias e professores.
             </p>
@@ -221,7 +221,7 @@ function LandingPage() {
             <p className="text-sm font-black uppercase text-alert-coral">Sobre a escola</p>
             <h2 className="mt-2 text-3xl font-black text-brand-ink md:text-4xl">Uma rotina academica acompanhada de perto</h2>
             <p className="mt-4 leading-7 text-muted">
-              O Colegio Progresso une tecnologia, acolhimento e excelencia pedagogica para transformar indicadores escolares em decisoes claras.
+              O Nexo une tecnologia, acolhimento e excelencia pedagogica para transformar indicadores escolares em decisoes claras.
             </p>
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               {schoolValues.map((value, index) => {
@@ -360,7 +360,7 @@ function LandingPage() {
                   label="E-mail"
                   name="email"
                   onChange={(event) => setLoginForm((current) => ({ ...current, email: event.target.value }))}
-                  placeholder="usuario@progresso.edu"
+                  placeholder="usuario@nexo.edu"
                   required
                   type="email"
                   value={loginForm.email}
@@ -386,7 +386,7 @@ function LandingPage() {
       <footer className="bg-brand-ink px-4 py-8 text-center text-sm text-slate-300">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-3">
           <LogoMark light />
-          <p className="font-bold text-white">Colegio Progresso</p>
+          <p className="font-bold text-white">Nexo</p>
           <p>Copyright 2026. Ensino inteligente, humano e conectado.</p>
         </div>
       </footer>

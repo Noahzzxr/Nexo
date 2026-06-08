@@ -1,4 +1,4 @@
-# Nexo - Colegio Inteligente
+# Nexo
 
 Sistema escolar web para centralizar rotina academica, dashboards, boletim, materiais, mensagens, calendario e gestao de usuarios.
 

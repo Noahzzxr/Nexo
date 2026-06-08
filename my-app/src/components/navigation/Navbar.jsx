@@ -77,7 +77,7 @@ function Navbar() {
         <NavLink className="flex min-w-0 shrink-0 items-center gap-2" onClick={() => setIsMenuOpen(false)} to={homeLink}>
           <LogoMark />
           <span className="hidden leading-none sm:block">
-            <span className="block text-sm font-black text-brand-ink">PROGRESSO</span>
+            <span className="block text-sm font-black text-brand-ink">NEXO</span>
             <span className="block text-[10px] font-bold uppercase text-alert-coral">Sistema Escolar</span>
           </span>
         </NavLink>

@@ -75,7 +75,7 @@ function PasswordSetupPage() {
         <div className="flex items-center gap-3">
           <LogoMark />
           <span>
-            <span className="block text-sm font-black text-brand-ink">PROGRESSO</span>
+            <span className="block text-sm font-black text-brand-ink">NEXO</span>
             <span className="block text-[10px] font-bold uppercase text-alert-coral">Convite escolar</span>
           </span>
         </div>

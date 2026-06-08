@@ -12,7 +12,7 @@ function Footer() {
           <div className="flex items-center gap-3">
             <LogoMark className="h-11 w-11" light />
             <div>
-              <p className="font-black">PROGRESSO</p>
+              <p className="font-black">NEXO</p>
               <p className="text-xs font-semibold uppercase text-slate-300">Portal Inteligente</p>
             </div>
           </div>
@@ -45,7 +45,7 @@ function Footer() {
             </span>
             <span className="flex items-center gap-2">
               <Mail aria-hidden="true" className="h-4 w-4" />
-              atendimento@progresso.edu
+              atendimento@nexo.edu
             </span>
             <span className="flex items-center gap-2">
               <MapPin aria-hidden="true" className="h-4 w-4" />
@@ -71,7 +71,7 @@ function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-slate-400">
-        Copyright 2026 Colegio Progresso. Todos os direitos reservados.
+        Copyright 2026 Nexo. Todos os direitos reservados.
       </div>
     </footer>
   )

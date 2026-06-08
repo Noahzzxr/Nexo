@@ -230,6 +230,12 @@ export async function sendMessage({ content, receiverId, senderId }) {
   return data
 }
 
+export async function clearChatMessages(contactId) {
+  const { data, error } = await supabase.rpc('clear_chat_messages', { contact_id: contactId })
+  if (error) throw error
+  return Array.isArray(data) ? data[0] : data
+}
+
 export async function createClass(payload) {
   const { data, error } = await supabase.from('classes').insert(payload).select().single()
   if (error) throw error

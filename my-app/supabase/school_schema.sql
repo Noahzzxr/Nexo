@@ -461,6 +461,34 @@ $$;
 
 grant execute on function public.create_school_account(text, text, text, text, uuid) to authenticated;
 
+create or replace function public.clear_chat_messages(contact_id uuid)
+returns table (
+  deleted_count integer
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+
+  if contact_id is null then
+    raise exception 'contact_id is required';
+  end if;
+
+  delete from public.messages
+   where (sender_id = auth.uid() and receiver_id = contact_id)
+      or (sender_id = contact_id and receiver_id = auth.uid());
+
+  get diagnostics deleted_count = row_count;
+  return query select deleted_count;
+end;
+$$;
+
+grant execute on function public.clear_chat_messages(uuid) to authenticated;
+
 create or replace function public.remove_school_user(profile_id uuid)
 returns table (
   id uuid,

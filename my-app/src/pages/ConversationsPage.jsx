@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Search, Send } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Search, Send, Trash2 } from 'lucide-react'
 import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
+import Modal from '../components/ui/Modal'
 import { roles } from '../context/roles'
 import { useSession } from '../hooks/useSession'
 import { useToast } from '../hooks/useToast'
 import { supabase } from '../lib/supabase'
-import { sendMessage } from '../services/schoolService'
+import { clearChatMessages, sendMessage } from '../services/schoolService'
 
 const makeTemporaryMessageId = () => `pending-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`
 
@@ -16,10 +17,14 @@ function ConversationsPage() {
   const { addToast } = useToast()
   const { currentUser, isAdmin, isTeacher, refreshSchoolData, roleLabel, schoolData } = useSession()
   const [activeId, setActiveId] = useState('')
+  const [clearedMessageIds, setClearedMessageIds] = useState([])
+  const [isClearingChat, setIsClearingChat] = useState(false)
   const [liveMessages, setLiveMessages] = useState([])
   const [messageText, setMessageText] = useState('')
   const [optimisticMessages, setOptimisticMessages] = useState([])
+  const [showClearChatModal, setShowClearChatModal] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const chatScrollRef = useRef(null)
 
   useEffect(() => {
     if (!supabase || !currentUser?.id) return undefined
@@ -63,10 +68,38 @@ function ConversationsPage() {
   const activeMessages = active
     ? messages.filter(
         (message) =>
-          (message.sender_id === currentUser.id && message.receiver_id === active.id) ||
-          (message.sender_id === active.id && message.receiver_id === currentUser.id),
+          !clearedMessageIds.includes(message.id) &&
+          ((message.sender_id === currentUser.id && message.receiver_id === active.id) ||
+            (message.sender_id === active.id && message.receiver_id === currentUser.id)),
       )
     : []
+
+  useEffect(() => {
+    const chatScroll = chatScrollRef.current
+    if (!chatScroll) return
+    chatScroll.scrollTop = chatScroll.scrollHeight
+  }, [active?.id, activeMessages.length])
+
+  const handleClearChat = async () => {
+    if (!active || !activeMessages.length) return
+
+    const messageIdsToClear = activeMessages.map((message) => message.id)
+    setIsClearingChat(true)
+
+    try {
+      await clearChatMessages(active.id)
+      setClearedMessageIds((current) => [...new Set([...current, ...messageIdsToClear])])
+      setLiveMessages((current) => current.filter((message) => !messageIdsToClear.includes(message.id)))
+      setOptimisticMessages((current) => current.filter((message) => !messageIdsToClear.includes(message.id)))
+      setShowClearChatModal(false)
+      await refreshSchoolData()
+      addToast({ title: 'Conversa limpa', message: `Mensagens com ${active.fullname} foram apagadas.` })
+    } catch (error) {
+      addToast({ title: 'Erro ao apagar conversa', message: error.message })
+    } finally {
+      setIsClearingChat(false)
+    }
+  }
 
   const handleSendMessage = async (event) => {
     event.preventDefault()
@@ -136,9 +169,14 @@ function ConversationsPage() {
                   <p className="truncate text-sm text-muted">{active.email}</p>
                 </div>
               </div>
-              <Badge tone="royal">{active.role}</Badge>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button disabled={!activeMessages.length || isClearingChat} icon={Trash2} onClick={() => setShowClearChatModal(true)} variant="ghost">
+                  Apagar
+                </Button>
+                <Badge tone="royal">{active.role}</Badge>
+              </div>
             </div>
-            <div className="scrollbar-thin flex-1 overflow-y-auto bg-page p-5">
+            <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto bg-page p-5" ref={chatScrollRef}>
               <div className="grid gap-4">
                 {activeMessages.map((message) => {
                   const sentByCurrentUser = message.sender_id === currentUser.id
@@ -164,6 +202,20 @@ function ConversationsPage() {
           <Card className="grid place-items-center text-muted">Nenhum contato disponivel.</Card>
         )}
       </div>
+
+      {showClearChatModal && active ? (
+        <Modal onClose={() => setShowClearChatModal(false)} title="Apagar conversa">
+          <div className="grid gap-5">
+            <p className="text-slate-700">Confirme para apagar as mensagens do chat com {active.fullname}.</p>
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button disabled={isClearingChat} onClick={() => setShowClearChatModal(false)} variant="ghost">Cancelar</Button>
+              <Button disabled={isClearingChat} icon={Trash2} onClick={handleClearChat} variant="coral">
+                {isClearingChat ? 'Apagando' : 'Apagar mensagens'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   )
 }
