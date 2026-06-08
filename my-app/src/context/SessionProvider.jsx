@@ -13,6 +13,7 @@ const emptySchoolData = {
   enrollments: [],
   grades: [],
   materials: [],
+  messageReactions: [],
   messages: [],
   profiles: [],
   quizAttempts: [],

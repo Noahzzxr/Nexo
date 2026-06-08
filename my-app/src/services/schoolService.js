@@ -60,6 +60,7 @@ export async function fetchSchoolData(currentUser) {
     eventsResult,
     materialsResult,
     messagesResult,
+    messageReactionsResult,
     quizzesResult,
     questionsResult,
     quizAttemptsResult,
@@ -76,6 +77,7 @@ export async function fetchSchoolData(currentUser) {
     supabase.from('calendar_events').select('*').order('start_date'),
     supabase.from('posted_materials').select('*').order('created_at', { ascending: false }),
     supabase.from('messages').select('*').order('created_at', { ascending: true }),
+    supabase.from('message_reactions').select('*').order('created_at', { ascending: true }),
     supabase.from('quizzes').select('*').order('title'),
     supabase.from('quiz_questions').select('*').order('created_at'),
     supabase.from('quiz_attempts').select('*').order('completed_at', { ascending: false }),
@@ -94,6 +96,7 @@ export async function fetchSchoolData(currentUser) {
     eventsResult,
     materialsResult,
     messagesResult,
+    messageReactionsResult,
     quizzesResult,
     questionsResult,
     quizAttemptsResult,
@@ -136,6 +139,7 @@ export async function fetchSchoolData(currentUser) {
     enrollments,
     grades,
     materials,
+    messageReactions: messageReactionsResult.data || [],
     messages: messagesResult.data || [],
     profiles,
     quizAttempts: quizAttemptsResult.data || [],
@@ -226,6 +230,19 @@ export async function sendMessage({ content, receiverId, senderId }) {
   }
 
   const { data, error } = await supabase.from('messages').insert(payload).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function reactToMessage({ emoji, messageId, studentId }) {
+  const payload = {
+    emoji,
+    message_id: messageId,
+    student_id: studentId,
+    updated_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase.from('message_reactions').upsert(payload, { onConflict: 'message_id,student_id' }).select().single()
   if (error) throw error
   return data
 }

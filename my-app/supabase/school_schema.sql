@@ -108,6 +108,16 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.message_reactions (
+  id uuid primary key default gen_random_uuid(),
+  message_id bigint not null references public.messages(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  emoji text not null check (emoji in ('👍', '❤️', '😊', '🎉', '👏', '😢')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (message_id, student_id)
+);
+
 do $$
 begin
   if not exists (
@@ -118,6 +128,16 @@ begin
        and tablename = 'messages'
   ) then
     alter publication supabase_realtime add table public.messages;
+  end if;
+
+  if not exists (
+    select 1
+      from pg_publication_tables
+     where pubname = 'supabase_realtime'
+       and schemaname = 'public'
+       and tablename = 'message_reactions'
+  ) then
+    alter publication supabase_realtime add table public.message_reactions;
   end if;
 end;
 $$;
@@ -474,6 +494,10 @@ begin
     raise exception 'not authenticated';
   end if;
 
+  if public.current_user_role() not in ('teacher', 'admin') then
+    raise exception 'only teachers can clear notices';
+  end if;
+
   if contact_id is null then
     raise exception 'contact_id is required';
   end if;
@@ -542,6 +566,7 @@ alter table public.grades enable row level security;
 alter table public.attendance_records enable row level security;
 alter table public.calendar_events enable row level security;
 alter table public.messages enable row level security;
+alter table public.message_reactions enable row level security;
 alter table public.leads_inscription enable row level security;
 alter table public.posted_materials enable row level security;
 alter table public.quizzes enable row level security;
@@ -688,12 +713,77 @@ create policy events_read_authenticated on public.calendar_events
   for select using (auth.uid() is not null);
 
 drop policy if exists messages_private_select on public.messages;
-create policy messages_private_select on public.messages
-  for select using (auth.uid() = sender_id or auth.uid() = receiver_id or public.current_user_role() = 'admin');
+drop policy if exists messages_notices_select on public.messages;
+create policy messages_notices_select on public.messages
+  for select using (
+    public.current_user_role() = 'admin'
+    or (public.current_user_role() = 'teacher' and auth.uid() = sender_id)
+    or (public.current_user_role() = 'student' and auth.uid() = receiver_id)
+  );
 
 drop policy if exists messages_private_insert on public.messages;
-create policy messages_private_insert on public.messages
-  for insert with check (auth.uid() = sender_id);
+drop policy if exists messages_teacher_insert on public.messages;
+create policy messages_teacher_insert on public.messages
+  for insert with check (
+    auth.uid() = sender_id
+    and public.current_user_role() = 'teacher'
+    and exists (
+      select 1 from public.profiles receiver
+      where receiver.id = receiver_id
+        and receiver.role = 'student'
+    )
+  );
+
+drop policy if exists message_reactions_admin_all on public.message_reactions;
+create policy message_reactions_admin_all on public.message_reactions
+  for all using (public.current_user_role() = 'admin')
+  with check (public.current_user_role() = 'admin');
+
+drop policy if exists message_reactions_select on public.message_reactions;
+create policy message_reactions_select on public.message_reactions
+  for select using (
+    public.current_user_role() = 'admin'
+    or (
+      public.current_user_role() = 'teacher'
+      and exists (
+        select 1 from public.messages m
+        where m.id = message_reactions.message_id
+          and m.sender_id = auth.uid()
+      )
+    )
+    or (
+      public.current_user_role() = 'student'
+      and student_id = auth.uid()
+    )
+  );
+
+drop policy if exists message_reactions_student_insert on public.message_reactions;
+create policy message_reactions_student_insert on public.message_reactions
+  for insert with check (
+    public.current_user_role() = 'student'
+    and student_id = auth.uid()
+    and exists (
+      select 1 from public.messages m
+      where m.id = message_reactions.message_id
+        and m.receiver_id = auth.uid()
+    )
+  );
+
+drop policy if exists message_reactions_student_update on public.message_reactions;
+create policy message_reactions_student_update on public.message_reactions
+  for update using (
+    public.current_user_role() = 'student'
+    and student_id = auth.uid()
+  )
+  with check (
+    public.current_user_role() = 'student'
+    and student_id = auth.uid()
+    and exists (
+      select 1 from public.messages m
+      where m.id = message_reactions.message_id
+        and m.receiver_id = auth.uid()
+    )
+  );
 
 drop policy if exists leads_admin_all on public.leads_inscription;
 create policy leads_admin_all on public.leads_inscription

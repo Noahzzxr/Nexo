@@ -10,11 +10,11 @@ import { useSession } from '../hooks/useSession'
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString('pt-BR') : '-')
 
 function DashboardPage() {
-  const { currentUser, isTeacher, roleLabel, schoolData } = useSession()
+  const { currentUser, isStudent, isTeacher, roleLabel, schoolData } = useSession()
   const pendingAssignments = schoolData.assignments.filter(
     (assignment) => !schoolData.submissions.some((submission) => submission.assignment_id === assignment.id && submission.student_id === currentUser.id),
   )
-  const userMessages = schoolData.messages.filter((message) => message.sender_id === currentUser.id || message.receiver_id === currentUser.id)
+  const userMessages = schoolData.messages.filter((message) => (isStudent ? message.receiver_id === currentUser.id : message.sender_id === currentUser.id))
   const upcomingEvents = schoolData.calendarEvents.slice(0, 4)
   const databaseProfile = schoolData.profiles.find((profile) => profile.id === currentUser.id) || currentUser
 
@@ -117,7 +117,7 @@ function DashboardPage() {
             <div className="mb-5 flex items-center justify-between">
               <div>
                 <p className="text-sm font-black uppercase text-alert-coral">Mensagens</p>
-                <h2 className="mt-1 text-xl font-black text-brand-ink">Conversas recentes</h2>
+                <h2 className="mt-1 text-xl font-black text-brand-ink">Comunicados recentes</h2>
               </div>
               <MessageSquare className="h-5 w-5 text-brand-royal" />
             </div>
@@ -135,9 +135,9 @@ function DashboardPage() {
                   </div>
                 )
               })}
-              {!userMessages.length ? <p className="rounded-lg bg-page p-4 text-sm text-muted">Nenhuma mensagem registrada.</p> : null}
+              {!userMessages.length ? <p className="rounded-lg bg-page p-4 text-sm text-muted">Nenhum comunicado registrado.</p> : null}
             </div>
-            <Button as={Link} className="mt-5 w-full" icon={MessageSquare} to="/conversas" variant="soft">Abrir conversas</Button>
+            <Button as={Link} className="mt-5 w-full" icon={MessageSquare} to="/conversas" variant="soft">Abrir comunicados</Button>
           </Card>
         </div>
       </div>

@@ -39,7 +39,7 @@ function Navbar() {
         { label: 'Atividades', to: '/atividades', icon: ClipboardList },
         { label: 'Jogos', to: '/jogos', icon: Gamepad2 },
         { label: 'Calendario', to: '/calendario', icon: CalendarDays },
-        { label: 'Bater papo', to: '/conversas', icon: MessageSquare },
+        { label: 'Comunicados', to: '/conversas', icon: MessageSquare },
         { label: 'Perfil', to: '/perfil', icon: UserCircle },
       ]
     }
@@ -49,7 +49,7 @@ function Navbar() {
       { label: 'Boletim', to: '/boletim', icon: BookOpen },
       { label: 'Atividades', to: '/atividades', icon: ClipboardList },
       { label: 'Jogos', to: '/jogos', icon: Gamepad2 },
-      { label: 'Bater papo', to: '/conversas', icon: MessageSquare },
+      { label: 'Comunicados', to: '/conversas', icon: MessageSquare },
       { label: 'Calendario', to: '/calendario', icon: CalendarDays },
       { label: 'Perfil', to: '/perfil', icon: UserCircle },
     ]
