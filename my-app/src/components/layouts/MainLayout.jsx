@@ -2,6 +2,7 @@ import { Navigate, Outlet, Link } from 'react-router-dom'
 import { Globe2, Mail, MapPin, MessagesSquare, Phone, Share2 } from 'lucide-react'
 import { useSession } from '../../hooks/useSession'
 import Navbar from '../navigation/Navbar'
+import LogoMark from '../brand/LogoMark'
 
 function Footer() {
   return (
@@ -9,9 +10,9 @@ function Footer() {
       <div className="mx-auto grid w-full max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[1.2fr_1fr_1fr_1fr]">
         <div>
           <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-lg bg-white text-sm font-black text-brand-ink">PG</span>
+            <LogoMark className="h-11 w-11" light />
             <div>
-              <p className="font-black">PROGRESSO</p>
+              <p className="font-black">NEXO</p>
               <p className="text-xs font-semibold uppercase text-slate-300">Portal Inteligente</p>
             </div>
           </div>
@@ -44,7 +45,7 @@ function Footer() {
             </span>
             <span className="flex items-center gap-2">
               <Mail aria-hidden="true" className="h-4 w-4" />
-              atendimento@progresso.edu
+              atendimento@nexo.edu
             </span>
             <span className="flex items-center gap-2">
               <MapPin aria-hidden="true" className="h-4 w-4" />
@@ -70,20 +71,20 @@ function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-slate-400">
-        Copyright 2026 Colegio Progresso. Todos os direitos reservados.
+        Copyright 2026 Nexo. Todos os direitos reservados.
       </div>
     </footer>
   )
 }
 
 function MainLayout() {
-  const { isAuthenticated, isLoadingSession } = useSession()
+  const { dataError, isAuthenticated, isLoadingSession } = useSession()
 
   if (isLoadingSession) {
     return (
       <div className="grid min-h-screen place-items-center bg-page px-4 text-center">
         <div>
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-brand-ink text-sm font-black text-white">PG</span>
+          <LogoMark className="mx-auto h-12 w-12" />
           <p className="mt-4 font-black text-brand-ink">Carregando sessao...</p>
         </div>
       </div>
@@ -98,6 +99,7 @@ function MainLayout() {
     <div className="min-h-screen bg-page">
       <Navbar />
       <main className="mx-auto min-h-screen w-full max-w-7xl px-4 pb-10 pt-24 sm:px-6">
+        {dataError ? <div className="mb-4 rounded-lg border border-alert-coral bg-alert-soft p-3 text-sm font-bold text-alert-coral">{dataError}</div> : null}
         <Outlet />
       </main>
       <Footer />

@@ -1,0 +1,2 @@
+[functions.invite-school-user]
+verify_jwt = false

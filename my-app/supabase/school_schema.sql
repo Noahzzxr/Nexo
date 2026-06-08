@@ -8,8 +8,11 @@ create table if not exists public.profiles (
   registration_number text unique,
   role text not null check (role in ('student', 'teacher', 'admin')),
   avatar_url text,
+  total_xp integer not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles add column if not exists total_xp integer not null default 0;
 
 create table if not exists public.classes (
   id uuid primary key default gen_random_uuid(),
@@ -86,10 +89,16 @@ create table if not exists public.calendar_events (
   id uuid primary key default gen_random_uuid(),
   class_id uuid references public.classes(id) on delete cascade,
   title text not null,
-  event_type text not null check (event_type in ('exam', 'activity', 'holiday')),
+  event_type text not null check (event_type in ('exam', 'activity', 'holiday', 'meeting', 'notice')),
+  color text not null default '#ef4444',
   start_date timestamptz not null,
   created_at timestamptz not null default now()
 );
+
+alter table public.calendar_events add column if not exists color text not null default '#ef4444';
+alter table public.calendar_events drop constraint if exists calendar_events_event_type_check;
+alter table public.calendar_events add constraint calendar_events_event_type_check
+  check (event_type in ('exam', 'activity', 'holiday', 'meeting', 'notice'));
 
 create table if not exists public.messages (
   id bigserial primary key,
@@ -98,6 +107,20 @@ create table if not exists public.messages (
   content text not null,
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1
+      from pg_publication_tables
+     where pubname = 'supabase_realtime'
+       and schemaname = 'public'
+       and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end;
+$$;
 
 create table if not exists public.leads_inscription (
   id uuid primary key default gen_random_uuid(),
@@ -126,8 +149,11 @@ create table if not exists public.quizzes (
   id uuid primary key default gen_random_uuid(),
   subject_id uuid references public.subjects(id) on delete cascade,
   title text not null,
+  base_xp integer not null default 100,
   created_at timestamptz not null default now()
 );
+
+alter table public.quizzes add column if not exists base_xp integer not null default 100;
 
 create table if not exists public.quiz_questions (
   id uuid primary key default gen_random_uuid(),
@@ -136,6 +162,16 @@ create table if not exists public.quiz_questions (
   options text[] not null,
   correct_option integer not null,
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.quiz_attempts (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid references public.quizzes(id) on delete cascade,
+  student_id uuid references public.profiles(id) on delete cascade,
+  correct_answers integer not null default 0,
+  total_questions integer not null default 0,
+  earned_xp integer not null default 0,
+  completed_at timestamptz not null default now()
 );
 
 create or replace function public.current_user_role()
@@ -194,6 +230,10 @@ begin
     email_confirmed_at,
     raw_app_meta_data,
     raw_user_meta_data,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token,
     created_at,
     updated_at
   )
@@ -207,6 +247,10 @@ begin
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('fullname', lead_record.full_name, 'role', 'student'),
+    '',
+    '',
+    '',
+    '',
     now(),
     now()
   )
@@ -224,7 +268,7 @@ begin
     updated_at
   )
   values (
-    new_user_id::text,
+    new_user_id,
     new_user_id,
     jsonb_build_object('sub', new_user_id::text, 'email', generated_email),
     'email',
@@ -278,6 +322,215 @@ $$;
 
 grant execute on function public.approve_lead(uuid, text, text, text) to authenticated;
 
+create or replace function public.create_school_account(
+  account_fullname text,
+  account_email text,
+  account_role text,
+  account_cpf text default null,
+  account_class_id uuid default null
+)
+returns table (
+  auth_user_id uuid,
+  fullname text,
+  email text,
+  role text,
+  registration_number text,
+  initial_password text
+)
+language plpgsql
+security definer
+set search_path = public, auth, extensions
+as $$
+declare
+  new_user_id uuid := gen_random_uuid();
+  generated_registration text;
+  generated_password text;
+begin
+  if public.current_user_role() <> 'admin' then
+    raise exception 'only admins can create school accounts';
+  end if;
+
+  if account_role not in ('student', 'teacher') then
+    raise exception 'account_role must be student or teacher';
+  end if;
+
+  if account_role = 'student' then
+    loop
+      generated_registration := 'PG-' || extract(year from now())::int || '-' || upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 8));
+      exit when not exists (
+        select 1 from public.profiles p where p.registration_number = generated_registration
+      );
+    end loop;
+    generated_password := generated_registration;
+  else
+    generated_registration := null;
+    generated_password := 'TCH-' || upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 12));
+  end if;
+
+  insert into auth.users (
+    id,
+    instance_id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token,
+    created_at,
+    updated_at
+  )
+  values (
+    new_user_id,
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    account_email,
+    crypt(generated_password, gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    jsonb_build_object('fullname', account_fullname, 'role', account_role),
+    '',
+    '',
+    '',
+    '',
+    now(),
+    now()
+  )
+  returning auth.users.id into new_user_id;
+
+  insert into auth.identities (
+    id,
+    user_id,
+    identity_data,
+    provider,
+    provider_id,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  )
+  values (
+    new_user_id,
+    new_user_id,
+    jsonb_build_object('sub', new_user_id::text, 'email', account_email),
+    'email',
+    account_email,
+    now(),
+    now(),
+    now()
+  )
+  on conflict (provider, provider_id) do nothing;
+
+  insert into public.profiles (
+    id,
+    fullname,
+    email,
+    cpf,
+    registration_number,
+    role
+  )
+  values (
+    new_user_id,
+    account_fullname,
+    account_email,
+    account_cpf,
+    generated_registration,
+    account_role
+  );
+
+  if account_role = 'student' and account_class_id is not null then
+    insert into public.enrollments (student_id, class_id)
+    values (new_user_id, account_class_id)
+    on conflict (student_id, class_id) do nothing;
+  end if;
+
+  return query
+    select
+      new_user_id,
+      account_fullname,
+      account_email,
+      account_role,
+      generated_registration,
+      generated_password;
+end;
+$$;
+
+grant execute on function public.create_school_account(text, text, text, text, uuid) to authenticated;
+
+create or replace function public.clear_chat_messages(contact_id uuid)
+returns table (
+  deleted_count integer
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+
+  if contact_id is null then
+    raise exception 'contact_id is required';
+  end if;
+
+  delete from public.messages
+   where (sender_id = auth.uid() and receiver_id = contact_id)
+      or (sender_id = contact_id and receiver_id = auth.uid());
+
+  get diagnostics deleted_count = row_count;
+  return query select deleted_count;
+end;
+$$;
+
+grant execute on function public.clear_chat_messages(uuid) to authenticated;
+
+create or replace function public.remove_school_user(profile_id uuid)
+returns table (
+  id uuid,
+  deleted boolean
+)
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  target_role text;
+begin
+  if public.current_user_role() <> 'admin' then
+    raise exception 'only admins can remove school users';
+  end if;
+
+  select role into target_role
+    from public.profiles
+   where public.profiles.id = profile_id;
+
+  if target_role is null then
+    raise exception 'profile not found';
+  end if;
+
+  if target_role = 'admin' then
+    raise exception 'admin profiles cannot be removed';
+  end if;
+
+  delete from auth.users
+   where auth.users.id = profile_id;
+
+  if not found then
+    delete from public.profiles
+     where public.profiles.id = profile_id;
+  end if;
+
+  return query select profile_id, true;
+end;
+$$;
+
+grant execute on function public.remove_school_user(uuid) to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.classes enable row level security;
 alter table public.subjects enable row level security;
@@ -293,6 +546,7 @@ alter table public.leads_inscription enable row level security;
 alter table public.posted_materials enable row level security;
 alter table public.quizzes enable row level security;
 alter table public.quiz_questions enable row level security;
+alter table public.quiz_attempts enable row level security;
 
 drop policy if exists profiles_admin_all on public.profiles;
 create policy profiles_admin_all on public.profiles
@@ -301,7 +555,12 @@ create policy profiles_admin_all on public.profiles
 
 drop policy if exists profiles_self_read_update on public.profiles;
 create policy profiles_self_read_update on public.profiles
-  for select using (id = auth.uid() or public.current_user_role() in ('teacher', 'admin'));
+  for select using (auth.uid() is not null);
+
+drop policy if exists profiles_self_update_avatar on public.profiles;
+create policy profiles_self_update_avatar on public.profiles
+  for update using (id = auth.uid())
+  with check (id = auth.uid());
 
 drop policy if exists classes_admin_all on public.classes;
 create policy classes_admin_all on public.classes
@@ -442,8 +701,6 @@ create policy leads_admin_all on public.leads_inscription
   with check (public.current_user_role() = 'admin');
 
 drop policy if exists leads_public_insert on public.leads_inscription;
-create policy leads_public_insert on public.leads_inscription
-  for insert with check (true);
 
 drop policy if exists posted_materials_admin_all on public.posted_materials;
 create policy posted_materials_admin_all on public.posted_materials
@@ -478,16 +735,7 @@ create policy quizzes_teacher_write on public.quizzes
 
 drop policy if exists quizzes_student_read_by_class_subject on public.quizzes;
 create policy quizzes_student_read_by_class_subject on public.quizzes
-  for select using (
-    public.current_user_role() in ('teacher', 'admin')
-    or exists (
-      select 1
-        from public.enrollments e
-        join public.teacher_subjects ts on ts.class_id = e.class_id
-       where e.student_id = auth.uid()
-         and ts.subject_id = quizzes.subject_id
-    )
-  );
+  for select using (auth.uid() is not null);
 
 drop policy if exists quiz_questions_admin_all on public.quiz_questions;
 create policy quiz_questions_admin_all on public.quiz_questions
@@ -501,16 +749,96 @@ create policy quiz_questions_teacher_write on public.quiz_questions
 
 drop policy if exists quiz_questions_student_read on public.quiz_questions;
 create policy quiz_questions_student_read on public.quiz_questions
-  for select using (
-    public.current_user_role() in ('teacher', 'admin')
-    or exists (
-      select 1
-        from public.quizzes q
-        join public.enrollments e on e.student_id = auth.uid()
-        join public.teacher_subjects ts on ts.class_id = e.class_id and ts.subject_id = q.subject_id
-       where q.id = quiz_questions.quiz_id
-    )
-  );
+  for select using (auth.uid() is not null);
+
+drop policy if exists quiz_attempts_admin_all on public.quiz_attempts;
+create policy quiz_attempts_admin_all on public.quiz_attempts
+  for all using (public.current_user_role() = 'admin')
+  with check (public.current_user_role() = 'admin');
+
+drop policy if exists quiz_attempts_teacher_read on public.quiz_attempts;
+create policy quiz_attempts_teacher_read on public.quiz_attempts
+  for select using (public.current_user_role() = 'teacher');
+
+drop policy if exists quiz_attempts_student_read on public.quiz_attempts;
+create policy quiz_attempts_student_read on public.quiz_attempts
+  for select using (student_id = auth.uid());
+
+create or replace function public.complete_quiz_attempt(
+  input_quiz_id uuid,
+  correct_answers integer,
+  total_questions integer
+)
+returns table (
+  id uuid,
+  earned_xp integer,
+  total_xp integer,
+  accuracy numeric
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  quiz_record public.quizzes%rowtype;
+  calculated_accuracy numeric;
+  calculated_xp integer;
+  attempt_id uuid;
+  updated_total_xp integer;
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+
+  if public.current_user_role() <> 'student' then
+    raise exception 'only students can complete quizzes';
+  end if;
+
+  if total_questions <= 0 then
+    raise exception 'total_questions must be greater than zero';
+  end if;
+
+  if correct_answers < 0 or correct_answers > total_questions then
+    raise exception 'correct_answers is invalid';
+  end if;
+
+  select * into quiz_record
+    from public.quizzes
+   where public.quizzes.id = input_quiz_id;
+
+  if quiz_record.id is null then
+    raise exception 'quiz not found';
+  end if;
+
+  calculated_accuracy := correct_answers::numeric / total_questions::numeric;
+  calculated_xp := greatest(10, round(coalesce(quiz_record.base_xp, 100) * calculated_accuracy)::integer);
+
+  insert into public.quiz_attempts (
+    quiz_id,
+    student_id,
+    correct_answers,
+    total_questions,
+    earned_xp
+  )
+  values (
+    input_quiz_id,
+    auth.uid(),
+    correct_answers,
+    total_questions,
+    calculated_xp
+  )
+  returning public.quiz_attempts.id into attempt_id;
+
+  update public.profiles
+     set total_xp = coalesce(public.profiles.total_xp, 0) + calculated_xp
+   where public.profiles.id = auth.uid()
+  returning public.profiles.total_xp into updated_total_xp;
+
+  return query select attempt_id, calculated_xp, updated_total_xp, calculated_accuracy;
+end;
+$$;
+
+grant execute on function public.complete_quiz_attempt(uuid, integer, integer) to authenticated;
 
 insert into storage.buckets (id, name, public)
 values ('school-attachments', 'school-attachments', true)
@@ -533,6 +861,195 @@ create policy attachments_authenticated_read on storage.objects
   for select using (bucket_id = 'school-attachments' and auth.uid() is not null);
 
 grant usage on schema public to anon, authenticated;
-grant insert on public.leads_inscription to anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant usage, select on all sequences in schema public to authenticated;
+
+insert into public.subjects (name)
+values
+  ('Matematica'),
+  ('Portugues'),
+  ('Historia'),
+  ('Ciencias'),
+  ('Ingles')
+on conflict (name) do nothing;
+
+do $$
+declare
+  subject_id_value uuid;
+  quiz_id_value uuid;
+begin
+  select id into subject_id_value from public.subjects where name = 'Matematica' limit 1;
+  if subject_id_value is not null and not exists (select 1 from public.quizzes where subject_id = subject_id_value and title = 'Desafio de Matematica') then
+    insert into public.quizzes (subject_id, title, base_xp)
+    values (subject_id_value, 'Desafio de Matematica', 120)
+    returning id into quiz_id_value;
+
+    insert into public.quiz_questions (quiz_id, question_text, options, correct_option)
+    values
+      (quiz_id_value, 'Quanto e 12 x 8?', array['80', '88', '96', '108'], 2),
+      (quiz_id_value, 'Qual e a raiz quadrada de 81?', array['7', '8', '9', '10'], 2),
+      (quiz_id_value, 'Se x + 15 = 42, quanto vale x?', array['17', '27', '32', '57'], 1);
+  end if;
+
+  select id into subject_id_value from public.subjects where name = 'Portugues' limit 1;
+  if subject_id_value is not null and not exists (select 1 from public.quizzes where subject_id = subject_id_value and title = 'Quiz de Portugues') then
+    insert into public.quizzes (subject_id, title, base_xp)
+    values (subject_id_value, 'Quiz de Portugues', 100)
+    returning id into quiz_id_value;
+
+    insert into public.quiz_questions (quiz_id, question_text, options, correct_option)
+    values
+      (quiz_id_value, 'Qual palavra e um substantivo?', array['Correr', 'Bonito', 'Escola', 'Rapidamente'], 2),
+      (quiz_id_value, 'Em qual alternativa ha um verbo?', array['Mesa', 'Caderno', 'Estudar', 'Azul'], 2),
+      (quiz_id_value, 'Qual sinal encerra uma pergunta?', array['Ponto final', 'Virgula', 'Dois pontos', 'Ponto de interrogacao'], 3);
+  end if;
+
+  select id into subject_id_value from public.subjects where name = 'Historia' limit 1;
+  if subject_id_value is not null and not exists (select 1 from public.quizzes where subject_id = subject_id_value and title = 'Linha do Tempo') then
+    insert into public.quizzes (subject_id, title, base_xp)
+    values (subject_id_value, 'Linha do Tempo', 110)
+    returning id into quiz_id_value;
+
+    insert into public.quiz_questions (quiz_id, question_text, options, correct_option)
+    values
+      (quiz_id_value, 'Em que ano ocorreu a Independencia do Brasil?', array['1500', '1789', '1822', '1889'], 2),
+      (quiz_id_value, 'Qual evento marcou o fim da monarquia no Brasil?', array['Proclamacao da Republica', 'Abolicao', 'Independencia', 'Constituicao de 1988'], 0),
+      (quiz_id_value, 'Quem foi Tiradentes?', array['Um bandeirante', 'Um lider da Inconfidencia Mineira', 'Um imperador', 'Um navegador'], 1);
+  end if;
+
+  select id into subject_id_value from public.subjects where name = 'Ciencias' limit 1;
+  if subject_id_value is not null and not exists (select 1 from public.quizzes where subject_id = subject_id_value and title = 'Ciencias em Acao') then
+    insert into public.quizzes (subject_id, title, base_xp)
+    values (subject_id_value, 'Ciencias em Acao', 110)
+    returning id into quiz_id_value;
+
+    insert into public.quiz_questions (quiz_id, question_text, options, correct_option)
+    values
+      (quiz_id_value, 'Qual planeta e conhecido como planeta vermelho?', array['Venus', 'Marte', 'Jupiter', 'Saturno'], 1),
+      (quiz_id_value, 'A agua ferve, ao nivel do mar, em aproximadamente:', array['0 graus Celsius', '50 graus Celsius', '100 graus Celsius', '200 graus Celsius'], 2),
+      (quiz_id_value, 'Qual orgao bombeia o sangue no corpo humano?', array['Pulmao', 'Figado', 'Coracao', 'Estomago'], 2);
+  end if;
+
+  select id into subject_id_value from public.subjects where name = 'Ingles' limit 1;
+  if subject_id_value is not null and not exists (select 1 from public.quizzes where subject_id = subject_id_value and title = 'English Basics') then
+    insert into public.quizzes (subject_id, title, base_xp)
+    values (subject_id_value, 'English Basics', 100)
+    returning id into quiz_id_value;
+
+    insert into public.quiz_questions (quiz_id, question_text, options, correct_option)
+    values
+      (quiz_id_value, 'What is the translation of "livro"?', array['Book', 'Table', 'School', 'Pen'], 0),
+      (quiz_id_value, 'Choose the correct greeting.', array['Good morning', 'Blue car', 'Fast water', 'Old desk'], 0),
+      (quiz_id_value, 'What color is "red" in Portuguese?', array['Azul', 'Vermelho', 'Verde', 'Amarelo'], 1);
+  end if;
+end;
+$$;
+
+do $$
+declare
+  admin_user_id uuid;
+begin
+  if not exists (select 1 from public.profiles where role = 'admin') then
+    admin_user_id := gen_random_uuid();
+
+    insert into auth.users (
+      id,
+      instance_id,
+      aud,
+      role,
+      email,
+      encrypted_password,
+      email_confirmed_at,
+      raw_app_meta_data,
+      raw_user_meta_data,
+      confirmation_token,
+      email_change,
+      email_change_token_new,
+      recovery_token,
+      created_at,
+      updated_at
+    )
+    values (
+      admin_user_id,
+      '00000000-0000-0000-0000-000000000000',
+      'authenticated',
+      'authenticated',
+      'admin@progresso.edu',
+      crypt('Admin@2026!', gen_salt('bf')),
+      now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      jsonb_build_object('fullname', 'Admin Progresso', 'role', 'admin'),
+      '',
+      '',
+      '',
+      '',
+      now(),
+      now()
+    )
+    on conflict (email) do update
+    set
+      encrypted_password = excluded.encrypted_password,
+      email_confirmed_at = coalesce(auth.users.email_confirmed_at, excluded.email_confirmed_at),
+      raw_app_meta_data = excluded.raw_app_meta_data,
+      raw_user_meta_data = excluded.raw_user_meta_data,
+      confirmation_token = '',
+      email_change = '',
+      email_change_token_new = '',
+      recovery_token = '',
+      updated_at = now()
+    returning auth.users.id into admin_user_id;
+
+    insert into auth.identities (
+      id,
+      user_id,
+      identity_data,
+      provider,
+      provider_id,
+      last_sign_in_at,
+      created_at,
+      updated_at
+    )
+    values (
+      admin_user_id,
+      admin_user_id,
+      jsonb_build_object('sub', admin_user_id::text, 'email', 'admin@progresso.edu'),
+      'email',
+      'admin@progresso.edu',
+      now(),
+      now(),
+      now()
+    )
+    on conflict (provider, provider_id) do update
+    set
+      user_id = excluded.user_id,
+      identity_data = excluded.identity_data,
+      updated_at = now();
+
+    insert into public.profiles (
+      id,
+      fullname,
+      email,
+      role
+    )
+    values (
+      admin_user_id,
+      'Admin Progresso',
+      'admin@progresso.edu',
+      'admin'
+    )
+    on conflict (id) do update
+    set
+      fullname = excluded.fullname,
+      email = excluded.email,
+      role = excluded.role;
+  end if;
+
+  update auth.users
+  set
+    confirmation_token = coalesce(confirmation_token, ''),
+    email_change = coalesce(email_change, ''),
+    email_change_token_new = coalesce(email_change_token_new, ''),
+    recovery_token = coalesce(recovery_token, '')
+  where email = 'admin@progresso.edu';
+end;
+$$;

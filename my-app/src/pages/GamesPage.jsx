@@ -1,161 +1,234 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
-import { Gamepad2, Play, Trophy } from 'lucide-react'
+import { Gamepad2, PlusCircle, Play, Trash2, Trophy } from 'lucide-react'
+import Avatar from '../components/ui/Avatar'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
-<<<<<<< HEAD
-import Modal from '../components/ui/Modal'
-import { games, pendingTasks } from '../data/mockData'
-
-function GamesPage() {
-  const [isRewardsOpen, setIsRewardsOpen] = useState(false)
-  const [redeemedRewards, setRedeemedRewards] = useState([])
-
-  const rewards = [
-    { title: 'Medalha de Ouro', description: 'Para quem completar 5 desafios com pontuacao maxima.' },
-    { title: 'Selo de Campeao', description: 'Concedido ao aluno mais engajado na semana.' },
-    { title: 'Coroa de Conquista', description: 'Resgate ao chegar em 1000 pontos no ranking.' },
-    { title: 'Estrela de Progresso', description: 'Disponivel para quem terminar todas as trilhas do mes.' },
-  ]
-
-  const handleRedeemReward = (rewardTitle) => {
-    setRedeemedRewards((current) =>
-      current.includes(rewardTitle) ? current : [...current, rewardTitle]
-    )
-=======
-import { games } from '../data/mockData'
+import InputField from '../components/ui/InputField'
 import { useSession } from '../hooks/useSession'
-import RankingPage from './RankingPage'
+import { useToast } from '../hooks/useToast'
+import { createQuizWithQuestions } from '../services/schoolService'
+
+const emptyQuestion = () => ({
+  correctOption: 0,
+  optionA: '',
+  optionB: '',
+  optionC: '',
+  optionD: '',
+  text: '',
+})
 
 function GamesPage() {
-  const { isTeacher } = useSession()
+  const { addToast } = useToast()
+  const { currentUser, isAdmin, isTeacher, refreshSchoolData, schoolData } = useSession()
+  const [quizForm, setQuizForm] = useState({ baseXp: 100, subjectId: '', title: '' })
+  const [questions, setQuestions] = useState([emptyQuestion()])
+  const canCreate = isAdmin || isTeacher
+  const subjectOptions = useMemo(
+    () => [{ label: 'Selecione', value: '' }, ...schoolData.subjects.map((subject) => ({ label: subject.name, value: subject.id }))],
+    [schoolData.subjects],
+  )
+  const rankingClassId = schoolData.currentEnrollment?.class_id
+  const rankingRows = useMemo(() => {
+    const studentIds =
+      rankingClassId && !isAdmin && !isTeacher
+        ? new Set(schoolData.enrollments.filter((enrollment) => enrollment.class_id === rankingClassId).map((enrollment) => enrollment.student_id))
+        : null
 
-  // Teachers do not play, they only view the student classification ranking
-  if (isTeacher) {
-    return <RankingPage />
->>>>>>> def3735 (Ajuste no CSS, correção de erro, chat funcionando e painei do professor)
+    return schoolData.students
+      .filter((student) => !studentIds || studentIds.has(student.id))
+      .sort((a, b) => Number(b.total_xp || 0) - Number(a.total_xp || 0))
+      .slice(0, 8)
+  }, [isAdmin, isTeacher, rankingClassId, schoolData.enrollments, schoolData.students])
+  const rankingClass = schoolData.classes.find((schoolClass) => schoolClass.id === rankingClassId)
+
+  const updateQuestion = (index, key, value) => {
+    setQuestions((current) => current.map((question, questionIndex) => (questionIndex === index ? { ...question, [key]: value } : question)))
+  }
+
+  const addQuestion = () => {
+    setQuestions((current) => [...current, emptyQuestion()])
+  }
+
+  const removeQuestion = (index) => {
+    setQuestions((current) => (current.length === 1 ? current : current.filter((_, questionIndex) => questionIndex !== index)))
+  }
+
+  const handleCreateQuiz = async (event) => {
+    event.preventDefault()
+
+    const payloadQuestions = questions.map((question) => ({
+      correctOption: Number(question.correctOption),
+      options: [question.optionA, question.optionB, question.optionC, question.optionD].map((option) => option.trim()),
+      text: question.text.trim(),
+    }))
+
+    if (payloadQuestions.some((question) => !question.text || question.options.some((option) => !option))) {
+      addToast({ title: 'Quiz incompleto', message: 'Preencha a pergunta e as quatro alternativas.' })
+      return
+    }
+
+    try {
+      await createQuizWithQuestions({
+        baseXp: quizForm.baseXp,
+        questions: payloadQuestions,
+        subjectId: quizForm.subjectId,
+        title: quizForm.title,
+      })
+      setQuizForm({ baseXp: 100, subjectId: '', title: '' })
+      setQuestions([emptyQuestion()])
+      await refreshSchoolData()
+      addToast({ title: 'Quiz criado', message: 'Jogo salvo no banco de dados.' })
+    } catch (error) {
+      addToast({ title: 'Erro ao criar quiz', message: error.message })
+    }
   }
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-black uppercase text-alert-coral">Jogos educativos</p>
-          <h1 className="mt-1 text-3xl font-black text-brand-ink">Aprender por desafios</h1>
-          <p className="mt-2 text-muted">Trilhas interativas por disciplina com pontos para o ranking da turma.</p>
-        </div>
-<<<<<<< HEAD
-        <Button icon={Trophy} variant="warning" onClick={() => setIsRewardsOpen(true)}>
-          Ver premios
-=======
-        <Button icon={Trophy} variant="warning">
-          Ver prêmios
->>>>>>> def3735 (Ajuste no CSS, correção de erro, chat funcionando e painei do professor)
-        </Button>
+      <div>
+        <p className="text-sm font-black uppercase text-alert-coral">Quizzes</p>
+        <h1 className="mt-1 text-3xl font-black text-brand-ink">Jogos educativos</h1>
+        <p className="mt-2 text-muted">Crie e jogue quizzes conectados ao banco de dados.</p>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {games.map((game) => (
-          <Card className="overflow-hidden p-0" key={game.title}>
-            <div className="relative">
-              <img alt={game.title} className="h-48 w-full object-cover" src={game.image} />
-              <Badge className="absolute right-3 top-3" tone="dark">
-                {game.score}
-              </Badge>
-            </div>
-            <div className="p-5">
-              <div className="flex items-start gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-brand-royal-soft text-brand-royal">
-                  <Gamepad2 aria-hidden="true" className="h-5 w-5" />
-                </span>
-                <div>
-                  <h2 className="font-black text-brand-ink">{game.title}</h2>
-                  <p className="mt-1 text-sm text-muted">{game.subject}</p>
-                </div>
+      <Card>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-black uppercase text-alert-coral">Ranking</p>
+            <h2 className="mt-1 text-xl font-black text-brand-ink">
+              {!isAdmin && !isTeacher ? `Melhores da turma${rankingClass ? ` ${rankingClass.name}` : ''}` : 'Melhores alunos'}
+            </h2>
+          </div>
+          <Trophy className="h-6 w-6 text-warning" />
+        </div>
+        <div className="grid gap-3">
+          {rankingRows.map((student, index) => (
+            <div className={`flex items-center gap-3 rounded-lg border p-3 ${student.id === currentUser.id ? 'border-brand-royal bg-brand-royal-soft' : 'border-line bg-white'}`} key={student.id}>
+              <Badge tone={index < 3 ? 'warning' : 'dark'}>{index + 1}</Badge>
+              <Avatar image={student.avatar_url} name={student.fullname} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate font-black text-brand-ink">{student.fullname}</p>
+                <p className="text-sm text-muted">{student.registration_number || student.email}</p>
               </div>
-              <Button as={Link} className="mt-5 w-full" icon={Play} to={`/quiz/${game.id}`} variant="royal">
-                Jogar agora
+              <p className="ml-auto shrink-0 font-black text-brand-royal">{Number(student.total_xp || 0)} XP</p>
+            </div>
+          ))}
+          {!rankingRows.length ? <p className="rounded-lg bg-page p-4 text-sm text-muted">Nenhum aluno com XP nesta turma.</p> : null}
+        </div>
+      </Card>
+
+      {canCreate ? (
+        <Card>
+          <form className="grid gap-5" onSubmit={handleCreateQuiz}>
+            <div className="grid gap-4 md:grid-cols-3">
+              <InputField
+                label="Titulo do quiz"
+                name="title"
+                onChange={(event) => setQuizForm((current) => ({ ...current, title: event.target.value }))}
+                required
+                value={quizForm.title}
+              />
+              <InputField
+                label="XP base"
+                min="10"
+                name="baseXp"
+                onChange={(event) => setQuizForm((current) => ({ ...current, baseXp: event.target.value }))}
+                required
+                type="number"
+                value={quizForm.baseXp}
+              />
+              <InputField
+                as="select"
+                label="Disciplina"
+                name="subjectId"
+                onChange={(event) => setQuizForm((current) => ({ ...current, subjectId: event.target.value }))}
+                options={subjectOptions}
+                required
+                value={quizForm.subjectId}
+              />
+            </div>
+
+            <div className="grid gap-4">
+              {questions.map((question, index) => (
+                <div className="rounded-lg border border-line bg-slate-50 p-4" key={index}>
+                  <div className="flex items-center justify-between gap-3">
+                    <Badge tone="dark">Pergunta {index + 1}</Badge>
+                    <Button disabled={questions.length === 1} icon={Trash2} onClick={() => removeQuestion(index)} type="button" variant="ghost">
+                      Remover
+                    </Button>
+                  </div>
+                  <div className="mt-4 grid gap-4">
+                    <InputField
+                      label="Enunciado"
+                      name={`question-${index}`}
+                      onChange={(event) => updateQuestion(index, 'text', event.target.value)}
+                      required
+                      value={question.text}
+                    />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <InputField label="Alternativa A" name={`a-${index}`} onChange={(event) => updateQuestion(index, 'optionA', event.target.value)} required value={question.optionA} />
+                      <InputField label="Alternativa B" name={`b-${index}`} onChange={(event) => updateQuestion(index, 'optionB', event.target.value)} required value={question.optionB} />
+                      <InputField label="Alternativa C" name={`c-${index}`} onChange={(event) => updateQuestion(index, 'optionC', event.target.value)} required value={question.optionC} />
+                      <InputField label="Alternativa D" name={`d-${index}`} onChange={(event) => updateQuestion(index, 'optionD', event.target.value)} required value={question.optionD} />
+                    </div>
+                    <InputField
+                      as="select"
+                      label="Resposta correta"
+                      name={`correct-${index}`}
+                      onChange={(event) => updateQuestion(index, 'correctOption', event.target.value)}
+                      options={[
+                        { label: 'Alternativa A', value: 0 },
+                        { label: 'Alternativa B', value: 1 },
+                        { label: 'Alternativa C', value: 2 },
+                        { label: 'Alternativa D', value: 3 },
+                      ]}
+                      value={question.correctOption}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button icon={PlusCircle} onClick={addQuestion} type="button" variant="soft">
+                Adicionar pergunta
+              </Button>
+              <Button icon={Gamepad2} type="submit" variant="royal">
+                Salvar quiz
               </Button>
             </div>
-          </Card>
-        ))}
+          </form>
+        </Card>
+      ) : null}
+
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {schoolData.quizzes.map((quiz) => {
+          const subject = schoolData.subjects.find((item) => item.id === quiz.subject_id)
+          return (
+            <Card className="flex h-full flex-col" key={quiz.id}>
+              <span className="grid h-11 w-11 place-items-center rounded-lg bg-brand-royal-soft text-brand-royal">
+                <Gamepad2 className="h-5 w-5" />
+              </span>
+              <h2 className="mt-5 text-xl font-black text-brand-ink">{quiz.title}</h2>
+              <p className="mt-2 text-sm text-muted">{subject?.name || 'Sem disciplina'}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge tone="royal">{quiz.questions.length} perguntas</Badge>
+                <Badge tone="success">{quiz.base_xp || 100} XP base</Badge>
+              </div>
+              {quiz.questions.length ? (
+                <Button as={Link} className="mt-auto w-full" icon={Play} to={`/quiz/${quiz.id}`} variant="royal">
+                  Jogar agora
+                </Button>
+              ) : (
+                <p className="mt-auto rounded-lg bg-page p-3 text-sm font-bold text-muted">Cadastre perguntas para liberar o jogo.</p>
+              )}
+            </Card>
+          )
+        })}
+        {!schoolData.quizzes.length ? <p className="rounded-lg bg-white p-4 text-sm text-muted">Nenhum quiz cadastrado.</p> : null}
       </div>
-
-      {isRewardsOpen && (
-        <Modal title="Prêmios e pendências" onClose={() => setIsRewardsOpen(false)}>
-          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.95fr]">
-            <div className="grid gap-4">
-              <div>
-                <p className="text-sm font-black uppercase text-alert-coral">Recompensas</p>
-                <p className="mt-2 text-sm text-muted">Resgate os prêmios conquistados e veja seu progresso.</p>
-              </div>
-              <div className="grid gap-3">
-                {rewards.map((reward) => {
-                  const isRedeemed = redeemedRewards.includes(reward.title)
-
-                  return (
-                    <Card className="border border-slate-200 p-4" key={reward.title}>
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <h3 className="font-black text-brand-ink">{reward.title}</h3>
-                          <p className="mt-1 text-sm text-copy">{reward.description}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {isRedeemed ? (
-                            <Badge tone="success">Resgatado</Badge>
-                          ) : (
-                            <Button
-                              variant="royal"
-                              onClick={() => handleRedeemReward(reward.title)}
-                            >
-                              Resgatar
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <div>
-                <p className="text-sm font-black uppercase text-alert-coral">O que falta fazer</p>
-                <p className="mt-2 text-sm text-muted">Complete essas tarefas para subir no ranking e liberar mais prêmios.</p>
-              </div>
-              <div className="grid gap-3">
-                {pendingTasks.map((task) => (
-                  <Card className="border border-line p-4" key={task.title}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-black text-brand-ink">{task.title}</p>
-                        <p className="mt-1 text-sm text-muted">
-                          {task.subject} - entrega {task.due}
-                        </p>
-                      </div>
-                      <Button
-                        as={Link}
-                        to="/atividades"
-                        variant={task.status === 'Atrasado' ? 'coral' : 'royal'}
-                        className="w-full sm:w-auto"
-                      >
-                        Ver tarefa
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end">
-            <Button variant="ghost" onClick={() => setIsRewardsOpen(false)}>
-              Fechar
-            </Button>
-          </div>
-        </Modal>
-      )}
     </div>
   )
 }

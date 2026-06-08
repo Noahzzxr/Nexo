@@ -1,10 +1,6 @@
 import { schoolBucket, supabase } from '../lib/supabase'
-import { postedMaterials } from '../data/mockData'
 
-const wait = (value) => new Promise((resolve) => window.setTimeout(() => resolve(value), 250))
-
-const makeId = () =>
-  crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
+const makeId = () => crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
 const cleanFileName = (name) =>
   name
@@ -13,44 +9,17 @@ const cleanFileName = (name) =>
     .replace(/[^a-zA-Z0-9.-]+/g, '-')
     .toLowerCase()
 
-const buildInstitutionalEmail = (fullName) => {
-  const parts = fullName
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-
-  const first = parts[0] || 'aluno'
-  const last = parts.at(-1) && parts.at(-1) !== first ? parts.at(-1) : 'progresso'
-  return `${first}.${last}@escola.com`
+const requireDatabase = () => {
+  if (!supabase) {
+    throw new Error('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para usar o sistema.')
+  }
 }
 
-const localMaterialsKey = 'school-posted-materials'
-
-const getLocalPostedMaterials = () => {
-  const stored = window.localStorage.getItem(localMaterialsKey)
-  return stored ? JSON.parse(stored) : postedMaterials
-}
-
-const setLocalPostedMaterials = (materials) => {
-  window.localStorage.setItem(localMaterialsKey, JSON.stringify(materials))
-}
-
-export const generateRegistrationNumber = () => {
-  const suffix = String(Math.floor(Math.random() * 9999)).padStart(4, '0')
-  return `PG-2026-${suffix}`
-}
+const orderByName = (rows) => [...(rows || [])].sort((a, b) => (a.name || a.fullname || '').localeCompare(b.name || b.fullname || ''))
 
 export async function uploadAttachment(file, folder = 'attachments') {
+  requireDatabase()
   if (!file) return { path: null, publicUrl: null }
-
-  if (!supabase) {
-    return wait({
-      path: `local/${folder}/${file.name}`,
-      publicUrl: URL.createObjectURL(file),
-    })
-  }
 
   const path = `${folder}/${Date.now()}-${cleanFileName(file.name)}`
   const { error } = await supabase.storage.from(schoolBucket).upload(path, file, {
@@ -64,18 +33,130 @@ export async function uploadAttachment(file, folder = 'attachments') {
   return { path, publicUrl: data.publicUrl }
 }
 
-export async function createStudentSubmission({ activity, file, studentId }) {
+export async function fetchProfile(userId) {
+  requireDatabase()
+  const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle()
+  if (error) throw error
+  if (!data) throw new Error('Perfil nao encontrado no banco de dados.')
+  return data
+}
+
+export async function fetchSchoolData(currentUser) {
+  requireDatabase()
+
+  const isAdmin = currentUser.role === 'admin'
+  const isTeacher = currentUser.role === 'teacher'
+
+  const [
+    profilesResult,
+    classesResult,
+    subjectsResult,
+    enrollmentsResult,
+    teacherSubjectsResult,
+    assignmentsResult,
+    submissionsResult,
+    gradesResult,
+    attendanceResult,
+    eventsResult,
+    materialsResult,
+    messagesResult,
+    quizzesResult,
+    questionsResult,
+    quizAttemptsResult,
+  ] = await Promise.all([
+    supabase.from('profiles').select('*').order('fullname'),
+    supabase.from('classes').select('*').order('name'),
+    supabase.from('subjects').select('*').order('name'),
+    supabase.from('enrollments').select('*'),
+    supabase.from('teacher_subjects').select('*'),
+    supabase.from('assignments').select('*').order('created_at', { ascending: false }),
+    supabase.from('student_submissions').select('*').order('submitted_at', { ascending: false }),
+    supabase.from('grades').select('*'),
+    supabase.from('attendance_records').select('*').order('month_label'),
+    supabase.from('calendar_events').select('*').order('start_date'),
+    supabase.from('posted_materials').select('*').order('created_at', { ascending: false }),
+    supabase.from('messages').select('*').order('created_at', { ascending: true }),
+    supabase.from('quizzes').select('*').order('title'),
+    supabase.from('quiz_questions').select('*').order('created_at'),
+    supabase.from('quiz_attempts').select('*').order('completed_at', { ascending: false }),
+  ])
+
+  const results = [
+    profilesResult,
+    classesResult,
+    subjectsResult,
+    enrollmentsResult,
+    teacherSubjectsResult,
+    assignmentsResult,
+    submissionsResult,
+    gradesResult,
+    attendanceResult,
+    eventsResult,
+    materialsResult,
+    messagesResult,
+    quizzesResult,
+    questionsResult,
+    quizAttemptsResult,
+  ]
+
+  const firstError = results.find((result) => result.error)?.error
+  if (firstError) throw firstError
+
+  const profiles = profilesResult.data || []
+  const classes = classesResult.data || []
+  const subjects = subjectsResult.data || []
+  const enrollments = enrollmentsResult.data || []
+  const teacherSubjects = teacherSubjectsResult.data || []
+  const submissions = submissionsResult.data || []
+
+  const currentEnrollment = enrollments.find((item) => item.student_id === currentUser.id)
+  const visibleClassIds = isAdmin
+    ? classes.map((item) => item.id)
+    : isTeacher
+    ? teacherSubjects.filter((item) => item.teacher_id === currentUser.id).map((item) => item.class_id)
+    : currentEnrollment
+    ? [currentEnrollment.class_id]
+    : []
+
+  const assignments = (assignmentsResult.data || []).filter((item) => isAdmin || isTeacher || visibleClassIds.includes(item.class_id))
+  const grades = (gradesResult.data || []).filter((item) => isAdmin || isTeacher || item.student_id === currentUser.id)
+  const attendance = (attendanceResult.data || []).filter((item) => isAdmin || isTeacher || item.student_id === currentUser.id)
+  const materials = (materialsResult.data || []).filter((item) => isAdmin || isTeacher || visibleClassIds.includes(item.class_id))
+  const quizzes = (quizzesResult.data || []).map((quiz) => ({
+    ...quiz,
+    questions: (questionsResult.data || []).filter((question) => question.quiz_id === quiz.id),
+  }))
+
+  return {
+    assignments,
+    attendance,
+    calendarEvents: eventsResult.data || [],
+    classes,
+    currentEnrollment,
+    enrollments,
+    grades,
+    materials,
+    messages: messagesResult.data || [],
+    profiles,
+    quizAttempts: quizAttemptsResult.data || [],
+    quizzes,
+    subjects,
+    submissions,
+    teacherSubjects,
+    students: orderByName(profiles.filter((profile) => profile.role === 'student')),
+    teachers: orderByName(profiles.filter((profile) => profile.role === 'teacher')),
+  }
+}
+
+export async function createStudentSubmission({ assignment, file, studentId }) {
   const attachment = await uploadAttachment(file, 'submissions')
   const payload = {
-    id: makeId(),
-    assignment_id: activity.id,
+    assignment_id: assignment.id,
     student_id: studentId,
     photo_delivery_url: attachment.publicUrl,
     submitted_at: new Date().toISOString(),
     status: 'completed',
   }
-
-  if (!supabase) return wait(payload)
 
   const { data, error } = await supabase.from('student_submissions').insert(payload).select().single()
   if (error) throw error
@@ -85,16 +166,13 @@ export async function createStudentSubmission({ activity, file, studentId }) {
 export async function createAssignment({ assignment, file }) {
   const attachment = await uploadAttachment(file, 'assignments')
   const payload = {
-    id: makeId(),
-    class_id: assignment.classId || null,
-    subject_id: assignment.subjectId || null,
+    class_id: assignment.classId,
+    subject_id: assignment.subjectId,
     title: assignment.title,
     description: assignment.description,
     file_attachment_url: attachment.publicUrl,
     due_date: assignment.dueDate,
   }
-
-  if (!supabase) return wait(payload)
 
   const { data, error } = await supabase.from('assignments').insert(payload).select().single()
   if (error) throw error
@@ -104,9 +182,7 @@ export async function createAssignment({ assignment, file }) {
 export async function createPostedMaterial({ file, material }) {
   const attachment = await uploadAttachment(file, 'posted-materials')
   const payload = {
-    id: makeId(),
     class_id: material.classId,
-    created_at: new Date().toISOString(),
     description: material.description,
     file_attachment_url: attachment.publicUrl,
     subject_id: material.subjectId,
@@ -114,53 +190,9 @@ export async function createPostedMaterial({ file, material }) {
     title: material.title,
   }
 
-  if (!supabase) {
-    const nextMaterials = [payload, ...getLocalPostedMaterials()]
-    setLocalPostedMaterials(nextMaterials)
-    return wait(payload)
-  }
-
   const { data, error } = await supabase.from('posted_materials').insert(payload).select().single()
   if (error) throw error
   return data
-}
-
-export async function fetchPostedMaterials({ classId }) {
-  if (!supabase) {
-    return wait(getLocalPostedMaterials().filter((material) => !classId || material.class_id === classId))
-  }
-
-  let query = supabase.from('posted_materials').select('*').order('created_at', { ascending: false })
-
-  if (classId) {
-    query = query.eq('class_id', classId)
-  }
-
-  const { data, error } = await query
-  if (error) throw error
-  return data
-}
-
-export function subscribePostedMaterials({ classId, onInsert }) {
-  if (!supabase) return () => {}
-
-  const channel = supabase
-    .channel(`posted-materials-${classId || 'all'}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        filter: classId ? `class_id=eq.${classId}` : undefined,
-        schema: 'public',
-        table: 'posted_materials',
-      },
-      (payload) => onInsert(payload.new),
-    )
-    .subscribe()
-
-  return () => {
-    supabase.removeChannel(channel)
-  }
 }
 
 export async function saveGrades(rows) {
@@ -175,21 +207,13 @@ export async function saveGrades(rows) {
     total_absences: Number(row.absences),
   }))
 
-  if (!supabase) return wait(payload)
-
-  const { data, error } = await supabase
-    .from('grades')
-    .upsert(payload, { onConflict: 'student_id,subject_id,class_id' })
-    .select()
-
+  const { data, error } = await supabase.from('grades').upsert(payload, { onConflict: 'student_id,subject_id,class_id' }).select()
   if (error) throw error
   return data
 }
 
 export async function saveFrequency(rows) {
-  if (!supabase) return wait(rows)
-
-  const { data, error } = await supabase.from('attendance_records').upsert(rows).select()
+  const { data, error } = await supabase.from('attendance_records').upsert(rows, { onConflict: 'student_id,class_id,month_label' }).select()
   if (error) throw error
   return data
 }
@@ -197,113 +221,141 @@ export async function saveFrequency(rows) {
 export async function sendMessage({ content, receiverId, senderId }) {
   const payload = {
     content,
-    created_at: new Date().toISOString(),
     receiver_id: receiverId,
     sender_id: senderId,
   }
-
-  if (!supabase) return wait({ id: makeId(), ...payload })
 
   const { data, error } = await supabase.from('messages').insert(payload).select().single()
   if (error) throw error
   return data
 }
 
-export async function fetchMessages({ receiverId, senderId }) {
-  if (!supabase) return wait([])
-
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .or(`and(sender_id.eq.${senderId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${senderId})`)
-    .order('created_at', { ascending: true })
-
-  if (error) throw error
-  return data
-}
-
-export async function createLead(lead) {
-  const payload = {
-    id: makeId(),
-    full_name: lead.fullName,
-    email: lead.email,
-    cpf: lead.cpf,
-    desired_course: lead.desiredCourse,
-    status: 'pending',
-  }
-
-  if (!supabase) return wait(payload)
-
-  const { data, error } = await supabase.from('leads_inscription').insert(payload).select().single()
-  if (error) throw error
-  return data
-}
-
-export async function approveLead(lead) {
-  const registrationNumber = generateRegistrationNumber()
-  const institutionalEmail = buildInstitutionalEmail(lead.full_name || lead.fullName)
-  const initialPassword = `Aluno@${registrationNumber.slice(-4)}`
-
-  if (!supabase) {
-    return wait({
-      ...lead,
-      auth_user_id: makeId(),
-      initial_password: initialPassword,
-      status: 'approved',
-      registration_number: registrationNumber,
-      institutional_email: institutionalEmail,
-    })
-  }
-
-  const { data, error } = await supabase.rpc('approve_lead', {
-    generated_password: initialPassword,
-    lead_id: lead.id,
-    generated_email: institutionalEmail,
-    generated_registration: registrationNumber,
-  })
-
+export async function clearChatMessages(contactId) {
+  const { data, error } = await supabase.rpc('clear_chat_messages', { contact_id: contactId })
   if (error) throw error
   return Array.isArray(data) ? data[0] : data
 }
 
-export async function createProfile(profile) {
-  const payload = { ...profile, id: profile.id || makeId() }
-
-  if (!supabase) return wait(payload)
-
-  const { data, error } = await supabase.from('profiles').insert(payload).select().single()
-  if (error) throw error
-  return data
-}
-
-export async function removeProfile(profileId) {
-  if (!supabase) return wait({ id: profileId })
-
-  const { error } = await supabase.from('profiles').delete().eq('id', profileId)
-  if (error) throw error
-  return { id: profileId }
-}
-
 export async function createClass(payload) {
-  if (!supabase) return wait({ id: makeId(), ...payload })
-
   const { data, error } = await supabase.from('classes').insert(payload).select().single()
   if (error) throw error
   return data
 }
 
 export async function createSubject(payload) {
-  if (!supabase) return wait({ id: makeId(), ...payload })
-
   const { data, error } = await supabase.from('subjects').insert(payload).select().single()
   if (error) throw error
   return data
 }
 
 export async function assignTeacher(payload) {
-  if (!supabase) return wait({ id: makeId(), ...payload })
-
   const { data, error } = await supabase.from('teacher_subjects').insert(payload).select().single()
   if (error) throw error
   return data
+}
+
+export async function createSchoolAccount(profile) {
+  const { data, error } = await supabase.functions.invoke('invite-school-user', {
+    body: {
+      classId: profile.classId || null,
+      cpf: profile.cpf || null,
+      email: profile.email,
+      fullname: profile.fullname,
+      role: profile.role,
+    },
+  })
+
+  if (error) {
+    let message = error.message
+
+    try {
+      const responseBody = await error.context?.json?.()
+      if (responseBody?.error) message = responseBody.error
+    } catch {
+      // Keep the original Supabase error when the response body is not JSON.
+    }
+
+    throw new Error(message)
+  }
+
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+export async function removeProfile(profileId) {
+  const { data, error } = await supabase.rpc('remove_school_user', { profile_id: profileId })
+  if (error) throw error
+  return Array.isArray(data) ? data[0] : data
+}
+
+export async function createCalendarEvent(payload) {
+  const eventPayload = {
+    class_id: payload.class_id || null,
+    color: payload.color,
+    event_type: payload.event_type,
+    start_date: payload.start_date,
+    title: payload.title,
+  }
+
+  const { data, error } = await supabase.from('calendar_events').insert(eventPayload).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function updateCalendarEvent(eventId, payload) {
+  const eventPayload = {
+    class_id: payload.class_id || null,
+    color: payload.color,
+    event_type: payload.event_type,
+    start_date: payload.start_date,
+    title: payload.title,
+  }
+
+  const { data, error } = await supabase.from('calendar_events').update(eventPayload).eq('id', eventId).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function createQuizWithQuestions({ baseXp = 100, questions, subjectId, title }) {
+  const { data: quiz, error: quizError } = await supabase
+    .from('quizzes')
+    .insert({ base_xp: Number(baseXp) || 100, subject_id: subjectId, title })
+    .select()
+    .single()
+
+  if (quizError) throw quizError
+
+  const questionPayload = questions.map((question) => ({
+    correct_option: Number(question.correctOption),
+    options: question.options,
+    question_text: question.text,
+    quiz_id: quiz.id,
+  }))
+
+  const { data: savedQuestions, error: questionsError } = await supabase.from('quiz_questions').insert(questionPayload).select()
+  if (questionsError) throw questionsError
+
+  return { ...quiz, questions: savedQuestions || [] }
+}
+
+export async function completeQuizAttempt({ correctAnswers, quizId, totalQuestions }) {
+  const { data, error } = await supabase.rpc('complete_quiz_attempt', {
+    correct_answers: correctAnswers,
+    input_quiz_id: quizId,
+    total_questions: totalQuestions,
+  })
+
+  if (error) throw error
+  return Array.isArray(data) ? data[0] : data
+}
+
+export async function updateProfileAvatar({ file, userId }) {
+  const attachment = await uploadAttachment(file, 'avatars')
+  const { data, error } = await supabase.from('profiles').update({ avatar_url: attachment.publicUrl }).eq('id', userId).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function incrementStudentPoints() {
+  return { id: makeId() }
 }
