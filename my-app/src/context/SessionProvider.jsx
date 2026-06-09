@@ -16,6 +16,7 @@ const emptySchoolData = {
   messageReactions: [],
   messages: [],
   profiles: [],
+  professorAvailability: [],
   quizAttempts: [],
   quizzes: [],
   students: [],
