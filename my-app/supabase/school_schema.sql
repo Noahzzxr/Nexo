@@ -43,6 +43,55 @@ create table if not exists public.teacher_subjects (
   unique (teacher_id, class_id, subject_id)
 );
 
+create table if not exists public.professor_disponibilidade (
+  id uuid primary key default gen_random_uuid(),
+  professor_id uuid not null references public.profiles(id) on delete cascade,
+  dia_semana text not null check (dia_semana in ('segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo')),
+  horario_inicio time not null,
+  horario_fim time not null,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now(),
+  check (horario_fim > horario_inicio),
+  unique (professor_id, dia_semana, horario_inicio, horario_fim)
+);
+
+create or replace function public.validate_professor_disponibilidade()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1
+      from public.profiles p
+     where p.id = new.professor_id
+       and p.role = 'teacher'
+  ) then
+    raise exception 'professor_id must reference a teacher profile';
+  end if;
+
+  if exists (
+    select 1
+      from public.professor_disponibilidade d
+     where d.professor_id = new.professor_id
+       and d.dia_semana = new.dia_semana
+       and d.id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000'::uuid)
+       and new.horario_inicio < d.horario_fim
+       and new.horario_fim > d.horario_inicio
+  ) then
+    raise exception 'teacher availability conflicts with an existing schedule';
+  end if;
+
+  new.atualizado_em := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists professor_disponibilidade_validate on public.professor_disponibilidade;
+create trigger professor_disponibilidade_validate
+  before insert or update on public.professor_disponibilidade
+  for each row execute function public.validate_professor_disponibilidade();
+
 create table if not exists public.assignments (
   id uuid primary key default gen_random_uuid(),
   class_id uuid references public.classes(id) on delete cascade,
@@ -560,6 +609,7 @@ alter table public.classes enable row level security;
 alter table public.subjects enable row level security;
 alter table public.enrollments enable row level security;
 alter table public.teacher_subjects enable row level security;
+alter table public.professor_disponibilidade enable row level security;
 alter table public.assignments enable row level security;
 alter table public.student_submissions enable row level security;
 alter table public.grades enable row level security;
@@ -622,6 +672,11 @@ create policy teacher_subjects_admin_all on public.teacher_subjects
 drop policy if exists teacher_subjects_teacher_read on public.teacher_subjects;
 create policy teacher_subjects_teacher_read on public.teacher_subjects
   for select using (teacher_id = auth.uid() or public.current_user_role() in ('teacher', 'admin'));
+
+drop policy if exists professor_disponibilidade_admin_all on public.professor_disponibilidade;
+create policy professor_disponibilidade_admin_all on public.professor_disponibilidade
+  for all using (public.current_user_role() = 'admin')
+  with check (public.current_user_role() = 'admin');
 
 drop policy if exists assignments_admin_all on public.assignments;
 create policy assignments_admin_all on public.assignments

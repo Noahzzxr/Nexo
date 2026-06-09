@@ -16,6 +16,32 @@ const requireDatabase = () => {
 }
 
 const orderByName = (rows) => [...(rows || [])].sort((a, b) => (a.name || a.fullname || '').localeCompare(b.name || b.fullname || ''))
+const isMissingAvailabilityTableError = (error) =>
+  error?.code === 'PGRST205' ||
+  error?.message?.toLowerCase?.().includes("could not find the table 'public.professor_disponibilidade'") ||
+  error?.message?.toLowerCase?.().includes('professor_disponibilidade')
+
+const timeToMinutes = (value) => {
+  const [hours, minutes] = String(value || '').split(':').map(Number)
+  return hours * 60 + minutes
+}
+
+const overlapsAvailability = (current, next) =>
+  current.professor_id === next.professor_id &&
+  current.dia_semana === next.dia_semana &&
+  current.id !== next.id &&
+  timeToMinutes(next.horario_inicio) < timeToMinutes(current.horario_fim) &&
+  timeToMinutes(next.horario_fim) > timeToMinutes(current.horario_inicio)
+
+const validateAvailabilityPayload = ({ dia_semana, horario_fim, horario_inicio, professor_id }) => {
+  if (!professor_id) throw new Error('Professor obrigatorio.')
+  if (!dia_semana) throw new Error('Dia da semana obrigatorio.')
+  if (!horario_inicio) throw new Error('Horario de inicio obrigatorio.')
+  if (!horario_fim) throw new Error('Horario de termino obrigatorio.')
+  if (timeToMinutes(horario_fim) <= timeToMinutes(horario_inicio)) {
+    throw new Error('Horario de termino deve ser maior que o horario de inicio.')
+  }
+}
 
 export async function uploadAttachment(file, folder = 'attachments') {
   requireDatabase()
@@ -64,6 +90,7 @@ export async function fetchSchoolData(currentUser) {
     quizzesResult,
     questionsResult,
     quizAttemptsResult,
+    availabilityResult,
   ] = await Promise.all([
     supabase.from('profiles').select('*').order('fullname'),
     supabase.from('classes').select('*').order('name'),
@@ -81,6 +108,7 @@ export async function fetchSchoolData(currentUser) {
     supabase.from('quizzes').select('*').order('title'),
     supabase.from('quiz_questions').select('*').order('created_at'),
     supabase.from('quiz_attempts').select('*').order('completed_at', { ascending: false }),
+    isAdmin ? supabase.from('professor_disponibilidade').select('*').order('dia_semana').order('horario_inicio') : Promise.resolve({ data: [], error: null }),
   ])
 
   const results = [
@@ -100,9 +128,10 @@ export async function fetchSchoolData(currentUser) {
     quizzesResult,
     questionsResult,
     quizAttemptsResult,
+    availabilityResult,
   ]
 
-  const firstError = results.find((result) => result.error)?.error
+  const firstError = results.find((result) => result.error && !isMissingAvailabilityTableError(result.error))?.error
   if (firstError) throw firstError
 
   const profiles = profilesResult.data || []
@@ -144,12 +173,122 @@ export async function fetchSchoolData(currentUser) {
     profiles,
     quizAttempts: quizAttemptsResult.data || [],
     quizzes,
+    professorAvailability: isMissingAvailabilityTableError(availabilityResult.error) ? [] : availabilityResult.data || [],
     subjects,
     submissions,
     teacherSubjects,
     students: orderByName(profiles.filter((profile) => profile.role === 'student')),
     teachers: orderByName(profiles.filter((profile) => profile.role === 'teacher')),
   }
+}
+
+export function getAdminDashboardData(schoolData) {
+  const students = schoolData.profiles.filter((profile) => profile.role === 'student')
+  const teachers = schoolData.profiles.filter((profile) => profile.role === 'teacher')
+  const grades = schoolData.grades.filter((grade) => Number.isFinite(Number(grade.final_grade)))
+  const average = (rows) => {
+    if (!rows.length) return null
+    return rows.reduce((sum, row) => sum + Number(row.final_grade || 0), 0) / rows.length
+  }
+
+  const averageByClass = schoolData.classes.map((classItem) => ({
+    id: classItem.id,
+    name: classItem.name,
+    average: average(grades.filter((grade) => grade.class_id === classItem.id)),
+  }))
+
+  const averageBySubject = schoolData.subjects.map((subject) => ({
+    id: subject.id,
+    name: subject.name,
+    average: average(grades.filter((grade) => grade.subject_id === subject.id)),
+  }))
+
+  const recentProfiles = [...schoolData.profiles]
+    .filter((profile) => profile.created_at)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 5)
+
+  return {
+    averageByClass,
+    averageBySubject,
+    generalAverage: average(grades),
+    recentProfiles,
+    totals: {
+      assignments: schoolData.assignments.length,
+      classes: schoolData.classes.length,
+      grades: grades.length,
+      students: students.length,
+      subjects: schoolData.subjects.length,
+      teachers: teachers.length,
+      users: schoolData.profiles.length,
+    },
+  }
+}
+
+export function listAdminTeachers(schoolData) {
+  return orderByName(schoolData.profiles.filter((profile) => profile.role === 'teacher'))
+}
+
+export async function fetchProfessorAvailability(professorId) {
+  requireDatabase()
+  if (!professorId) return []
+  const { data, error } = await supabase
+    .from('professor_disponibilidade')
+    .select('*')
+    .eq('professor_id', professorId)
+    .order('dia_semana')
+    .order('horario_inicio')
+  if (isMissingAvailabilityTableError(error)) {
+    throw new Error('A tabela professor_disponibilidade ainda nao esta disponivel neste projeto Supabase. Rode o school_schema.sql no projeto configurado no .env e recarregue o schema cache.')
+  }
+  if (error) throw error
+  return data || []
+}
+
+export async function createProfessorAvailability(payload, currentRows = []) {
+  requireDatabase()
+  validateAvailabilityPayload(payload)
+  if (currentRows.some((row) => overlapsAvailability(row, payload))) {
+    throw new Error('Ja existe disponibilidade conflitante para esse professor nesse dia.')
+  }
+
+  const { data, error } = await supabase.from('professor_disponibilidade').insert(payload).select().single()
+  if (isMissingAvailabilityTableError(error)) {
+    throw new Error('A tabela professor_disponibilidade ainda nao esta disponivel neste projeto Supabase. Rode o school_schema.sql no projeto configurado no .env e recarregue o schema cache.')
+  }
+  if (error) throw error
+  return data
+}
+
+export async function updateProfessorAvailability(availabilityId, payload, currentRows = []) {
+  requireDatabase()
+  validateAvailabilityPayload(payload)
+  const nextPayload = { ...payload, id: availabilityId }
+  if (currentRows.some((row) => overlapsAvailability(row, nextPayload))) {
+    throw new Error('Ja existe disponibilidade conflitante para esse professor nesse dia.')
+  }
+
+  const { data, error } = await supabase
+    .from('professor_disponibilidade')
+    .update({ ...payload, atualizado_em: new Date().toISOString() })
+    .eq('id', availabilityId)
+    .select()
+    .single()
+  if (isMissingAvailabilityTableError(error)) {
+    throw new Error('A tabela professor_disponibilidade ainda nao esta disponivel neste projeto Supabase. Rode o school_schema.sql no projeto configurado no .env e recarregue o schema cache.')
+  }
+  if (error) throw error
+  return data
+}
+
+export async function deleteProfessorAvailability(availabilityId) {
+  requireDatabase()
+  const { error } = await supabase.from('professor_disponibilidade').delete().eq('id', availabilityId)
+  if (isMissingAvailabilityTableError(error)) {
+    throw new Error('A tabela professor_disponibilidade ainda nao esta disponivel neste projeto Supabase. Rode o school_schema.sql no projeto configurado no .env e recarregue o schema cache.')
+  }
+  if (error) throw error
+  return true
 }
 
 export async function createStudentSubmission({ assignment, file, studentId }) {
