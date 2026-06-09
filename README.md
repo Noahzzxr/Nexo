@@ -77,7 +77,7 @@ http://localhost:5173/definir-senha
 ## Admin Inicial
 
 ```txt
-Email: admin@progresso.edu
+Email: admin@nexo.edu
 Senha: Admin@2026!
 ```
 

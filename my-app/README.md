@@ -22,7 +22,7 @@ Aplique `supabase/school_schema.sql` no SQL Editor do Supabase antes de testar o
 
 ## Login admin inicial
 
-- Email: `admin@progresso.edu`
+- Email: `admin@nexo.edu`
 - Senha: `Admin@2026!`
 
 Use essa conta para convidar alunos e professores pelo painel admin. Alunos recebem uma matricula automaticamente, e alunos/professores recebem o convite no e-mail cadastrado.

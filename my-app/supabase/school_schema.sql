@@ -1064,11 +1064,11 @@ begin
       '00000000-0000-0000-0000-000000000000',
       'authenticated',
       'authenticated',
-      'admin@progresso.edu',
+      'admin@nexo.edu',
       crypt('Admin@2026!', gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
-      jsonb_build_object('fullname', 'Admin Progresso', 'role', 'admin'),
+      jsonb_build_object('fullname', 'Admin Nexo', 'role', 'admin'),
       '',
       '',
       '',
@@ -1102,9 +1102,9 @@ begin
     values (
       admin_user_id,
       admin_user_id,
-      jsonb_build_object('sub', admin_user_id::text, 'email', 'admin@progresso.edu'),
+      jsonb_build_object('sub', admin_user_id::text, 'email', 'admin@nexo.edu'),
       'email',
-      'admin@progresso.edu',
+      'admin@nexo.edu',
       now(),
       now(),
       now()
@@ -1123,8 +1123,8 @@ begin
     )
     values (
       admin_user_id,
-      'Admin Progresso',
-      'admin@progresso.edu',
+      'Admin Nexo',
+      'admin@nexo.edu',
       'admin'
     )
     on conflict (id) do update
@@ -1140,6 +1140,6 @@ begin
     email_change = coalesce(email_change, ''),
     email_change_token_new = coalesce(email_change_token_new, ''),
     recovery_token = coalesce(recovery_token, '')
-  where email = 'admin@progresso.edu';
+  where email = 'admin@nexo.edu';
 end;
 $$;
